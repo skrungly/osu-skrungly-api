@@ -1,4 +1,4 @@
-from flask_restx.fields import Float, Integer, String
+from flask_restx.fields import DateTime, Float, Integer, String
 
 from app import api
 
@@ -40,4 +40,29 @@ leaderboard_model = api.model("Leaderboard", {
     "plays": Integer,
     "tscore": Integer,
     "rscore": Integer,
+})
+
+beatmap_model = api.model("Beatmap", {
+    "id": Integer,
+    "set_id": Integer,
+    "status": Integer,
+    "md5": String,
+    "artist": String,
+    "title": String,
+    "version": String,
+    "creator": String,
+    "filename": String,
+    "last_update": DateTime,
+    "total_length": Integer,
+    "max_combo": Integer,
+    "frozen": Integer,
+    "plays": Integer,
+    "passes": Integer,
+    "mode": Integer,
+    "bpm": Float,
+    "cs": Float,
+    "ar": Float,
+    "od": Float,
+    "hp": Float,
+    "diff": Float,
 })

@@ -105,3 +105,21 @@ class LeaderboardAPI(Resource):
             )
 
             return cursor.fetchall()
+
+
+@api.route("/mapsets/<int:set_id>")
+class BeatmapSetAPI(Resource):
+    @api.marshal_with(models.beatmap_model)
+    def get(self, set_id):
+        with db.cursor() as cursor:
+            cursor.execute("SELECT * FROM maps WHERE set_id = %s", (set_id,))
+            return cursor.fetchall() or abort(404)
+
+
+@api.route("/maps/<int:map_id>")
+class BeatmapAPI(Resource):
+    @api.marshal_with(models.beatmap_model)
+    def get(self, map_id):
+        with db.cursor() as cursor:
+            cursor.execute("SELECT * FROM maps WHERE id = %s", (map_id,))
+            return cursor.fetchone() or abort(404)
