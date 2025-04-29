@@ -1,5 +1,5 @@
 from flask import abort
-from flask_restful import Api, reqparse, Resource
+from flask_restx import Api, reqparse, Resource
 
 from app import app, db
 
@@ -23,23 +23,28 @@ class PaginatedRequestParser(reqparse.RequestParser):
         return req_args
 
 
+@api.route("/players/<id_or_name>")
 class PlayerAPI(Resource):
-    def get(self, user_id):
+    def get(self, id_or_name):
+        identifier = "id" if id_or_name.isdigit() else "name"
+
         with db.cursor() as cursor:
-            cursor.execute(
-                "SELECT id, name, safe_name, priv, country, creation_time, "
-                "  latest_activity, preferred_mode, userpage_content "
-                "FROM users WHERE id = %s",
-                (user_id,)
+            cursor.execute(f"""
+                SELECT id, name, safe_name, priv, country, creation_time,
+                  latest_activity, preferred_mode, userpage_content
+                FROM users WHERE {identifier} = %s
+                """, (id_or_name,)
             )
 
             player_data = cursor.fetchone()
             if not player_data:
                 abort(404)
 
-            player_data["stats"] = {}
+            cursor.execute(
+                "SELECT * FROM stats WHERE id = %s", player_data["id"]
+            )
 
-            cursor.execute("SELECT * FROM stats WHERE id = %s", user_id)
+            player_data["stats"] = {}
             for stats in cursor.fetchall():
                 player_data["stats"][stats["mode"]] = stats
 
@@ -49,24 +54,7 @@ class PlayerAPI(Resource):
         ...
 
 
-class PlayerNameAPI(PlayerAPI):
-    @staticmethod
-    def _id_from_name(username):
-        with db.cursor() as cursor:
-            cursor.execute("SELECT id FROM users WHERE name = %s", username)
-            user_id = cursor.fetchone()
-            if not user_id:
-                abort(404)
-
-        return user_id["id"]
-
-    def get(self, username):
-        return super().get(self._id_from_name(username))
-
-    def put(self, username):
-        return super().put(self._id_from_name(username))
-
-
+@api.route("/leaderboard")
 class LeaderboardAPI(Resource):
     def __init__(self):
         self.reqparse = PaginatedRequestParser()
@@ -81,19 +69,15 @@ class LeaderboardAPI(Resource):
             abort(422)
 
         with db.cursor() as cursor:
-            cursor.execute(
-                "SELECT u.id, u.name, s.pp, s.plays, s.tscore, s.rscore "
-                "FROM users u INNER JOIN stats s "
-                "ON u.id = s.id "
-                "WHERE s.mode = %s && s.plays != 0 "
-                f"ORDER BY s.{args['sort']} DESC "
-                "LIMIT %s OFFSET %s",
-                (args["mode"], args["limit"], args["limit"] * args["page"])
+            offset = args["limit"] * args["page"]
+            cursor.execute(f"""
+                SELECT u.id, u.name, s.pp, s.plays, s.tscore, s.rscore
+                FROM users u INNER JOIN stats s
+                ON u.id = s.id
+                WHERE s.mode = %s && s.plays != 0
+                ORDER BY s.{args['sort']} DESC
+                LIMIT %s OFFSET %s
+                """, (args["mode"], args["limit"], offset)
             )
 
             return cursor.fetchall()
-
-
-api.add_resource(PlayerNameAPI, "/players/<username>", endpoint="player_name")
-api.add_resource(PlayerAPI, "/players/<int:user_id>", endpoint="player_id")
-api.add_resource(LeaderboardAPI, "/leaderboard", endpoint="leaderboard")
