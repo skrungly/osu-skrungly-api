@@ -2,8 +2,10 @@ import os
 
 import pymysql
 from flask import Flask
+from flask_restx import Api
 
 app = Flask(__name__)
+api = Api(app)
 
 db = pymysql.connect(
     host=os.environ.get("MYSQL_HOST", "mysql"),
@@ -13,4 +15,4 @@ db = pymysql.connect(
     cursorclass=pymysql.cursors.DictCursor,
 )
 
-from app import api  # noqa: F401 E402
+from app import routes  # noqa: F401 E402

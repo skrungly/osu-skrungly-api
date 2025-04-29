@@ -1,9 +1,16 @@
 from flask import abort
-from flask_restx import Api, reqparse, Resource
+from flask_restx import reqparse, Resource
 
-from app import app, db
+from app import api, db, models
 
-api = Api(app)
+
+MODE_NAMES = {
+    "osu": 0,
+    "taiko": 1,
+    "catch": 2,
+    "mania": 3,
+    "relax": 4,
+}
 
 
 class PaginatedRequestParser(reqparse.RequestParser):
@@ -25,6 +32,7 @@ class PaginatedRequestParser(reqparse.RequestParser):
 
 @api.route("/players/<id_or_name>")
 class PlayerAPI(Resource):
+    @api.marshal_with(models.player_model)
     def get(self, id_or_name):
         identifier = "id" if id_or_name.isdigit() else "name"
 
@@ -36,32 +44,48 @@ class PlayerAPI(Resource):
                 """, (id_or_name,)
             )
 
-            player_data = cursor.fetchone()
-            if not player_data:
-                abort(404)
-
-            cursor.execute(
-                "SELECT * FROM stats WHERE id = %s", player_data["id"]
-            )
-
-            player_data["stats"] = {}
-            for stats in cursor.fetchall():
-                player_data["stats"][stats["mode"]] = stats
-
-        return player_data
+            return cursor.fetchone() or abort(404)
 
     def put(self, user_id):
         ...
 
 
+@api.route("/players/<id_or_name>/stats/<mode>")
+class PlayerStatsAPI(Resource):
+    @api.marshal_with(models.player_stats_model)
+    def get(self, id_or_name, mode):
+        if not mode.isdigit():
+            mode = MODE_NAMES.get(mode) or abort(404)
+
+        with db.cursor() as cursor:
+            # find the player id if we're given a name
+            if not id_or_name.isdigit():
+                cursor.execute(
+                    "SELECT id FROM users WHERE name = %s", (id_or_name,)
+                )
+                player_id = cursor.fetchone().get("id") or abort(404)
+            else:
+                player_id = id_or_name
+
+            # now fetch the stats if the player has any
+            cursor.execute("""
+                SELECT * FROM stats
+                WHERE mode = %s and id = %s and plays > 0
+                """, (mode, player_id),
+            )
+
+            return cursor.fetchone() or abort(404)
+
+
 @api.route("/leaderboard")
 class LeaderboardAPI(Resource):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self.reqparse = PaginatedRequestParser()
         self.reqparse.add_argument("sort", type=str, default="pp")
         self.reqparse.add_argument("mode", type=int, required=True)
-        super().__init__()
+        super().__init__(*args, **kwargs)
 
+    @api.marshal_with(models.leaderboard_model)
     def get(self):
         args = self.reqparse.parse_args()
 
