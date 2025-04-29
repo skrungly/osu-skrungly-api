@@ -55,6 +55,6 @@ class PlayerListAPI(Resource):
         ...
 
 
-api.add_resource(PlayerNameAPI, "/players/<username>", endpoint="player_by_name")
-api.add_resource(PlayerAPI, "/players/<int:user_id>", endpoint="player_by_id")
+api.add_resource(PlayerNameAPI, "/players/<username>", endpoint="player_name")
+api.add_resource(PlayerAPI, "/players/<int:user_id>", endpoint="player_id")
 api.add_resource(PlayerListAPI, "/players", endpoint="players")

@@ -13,4 +13,4 @@ db = pymysql.connect(
     cursorclass=pymysql.cursors.DictCursor,
 )
 
-from app import api
+from app import api  # noqa: F401 E402
