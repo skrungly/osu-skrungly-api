@@ -15,11 +15,18 @@ MODE_NAMES = {
 
 def _resolve_player_id(id_or_name: str):
     if id_or_name.isdigit():
-        return int(id_or_name)
+        return id_or_name
 
     with db.cursor() as cursor:
         cursor.execute("SELECT id FROM users WHERE name = %s", (id_or_name,))
-        return int(cursor.fetchone().get("id"))
+        return cursor.fetchone().get("id")
+
+
+def _resolve_mode_id(id_or_name: str):
+    if id_or_name.isdigit():
+        return id_or_name
+
+    return MODE_NAMES.get(id_or_name)
 
 
 class PaginatedRequestParser(reqparse.RequestParser):
@@ -71,13 +78,18 @@ class PlayerAPI(Resource):
                 """, (player_id,)
             )
 
-            return cursor.fetchone() or abort(404)
+            player_data = cursor.fetchone() or abort(404)
+
+            cursor.execute("SELECT * FROM stats WHERE id = %s", (player_id,))
+            player_data["stats"] = cursor.fetchall()
+
+        return player_data
 
     def put(self, user_id):
         ...
 
 
-@api.route("/players/<id_or_name>/stats/<mode>")
+@api.route("/players/<id_or_name>/stats")
 class PlayerStatsAPI(Resource):
     def __init__(self, *args, **kwargs):
         self.reqparse = reqparse.RequestParser()
@@ -86,9 +98,9 @@ class PlayerStatsAPI(Resource):
 
     @api.marshal_with(models.player_stats_model)
     def get(self, id_or_name):
-        mode = self.reqparse.parse_args()["mode"]
-        if not mode.isdigit():
-            mode = MODE_NAMES.get(mode) or abort(404)
+        args = self.reqparse.parse_args()
+        if not (mode_id := _resolve_mode_id(args["mode"])):
+            abort(422)
 
         if not (player_id := _resolve_player_id(id_or_name)):
             abort(404)
@@ -97,7 +109,7 @@ class PlayerStatsAPI(Resource):
             cursor.execute("""
                 SELECT * FROM stats
                 WHERE mode = %s and id = %s and plays > 0
-                """, (mode, player_id),
+                """, (mode_id, player_id),
             )
 
             return cursor.fetchone() or abort(404)
@@ -115,9 +127,8 @@ class PlayerScoresAPI(Resource):
     def get(self, id_or_name):
         args = self.reqparse.parse_args()
 
-        mode = args["mode"]
-        if not mode.isdigit():
-            mode = MODE_NAMES.get(args["mode"]) or abort(404)
+        if not (mode_id := _resolve_mode_id(args["mode"])):
+            abort(422)
 
         if not (player_id := _resolve_player_id(id_or_name)):
             abort(404)
@@ -126,7 +137,8 @@ class PlayerScoresAPI(Resource):
             query = """
                 SELECT m.*, s.* FROM scores s
                 INNER JOIN maps m ON m.md5 = s.map_md5
-                WHERE s.userid = %s AND s.mode = %s AND s.status = 2
+                WHERE s.userid = %s AND s.mode = %s
+                    AND s.status = 2 AND m.status = 2
                 ORDER BY s.pp DESC
                 LIMIT %s OFFSET %s
                 """
@@ -144,7 +156,7 @@ class PlayerScoresAPI(Resource):
 
         with db.cursor() as cursor:
             offset = args["limit"] * args["page"]
-            cursor.execute(query, (player_id, mode, args["limit"], offset))
+            cursor.execute(query, (player_id, mode_id, args["limit"], offset))
             score_and_beatmap = cursor.fetchall()
 
         # the resulting data is a mix of map and score properties,
@@ -181,7 +193,7 @@ class LeaderboardAPI(Resource):
     def __init__(self, *args, **kwargs):
         self.reqparse = PaginatedRequestParser()
         self.reqparse.add_argument("sort", type=str, default="pp")
-        self.reqparse.add_argument("mode", type=int, required=True)
+        self.reqparse.add_argument("mode", type=str, required=True)
         super().__init__(*args, **kwargs)
 
     @api.marshal_with(models.leaderboard_model)

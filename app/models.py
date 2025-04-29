@@ -2,18 +2,6 @@ from flask_restx.fields import DateTime, Float, Integer, Nested, String
 
 from app import api
 
-player_model = api.model("Player", {
-    "id": Integer,
-    "name": String,
-    "safe_name": String,
-    "priv": Integer,
-    "country": String,
-    "creation_time": Integer,
-    "latest_activity": Integer,
-    "preferred_mode": Integer,
-    "userpage_content": String,
-})
-
 player_stats_model = api.model("PlayerStats", {
     "id": Integer,
     "mode": Integer,
@@ -31,6 +19,19 @@ player_stats_model = api.model("PlayerStats", {
     "sh_count": Integer,
     "s_count": Integer,
     "a_count": Integer,
+})
+
+player_model = api.model("Player", {
+    "id": Integer,
+    "name": String,
+    "safe_name": String,
+    "priv": Integer,
+    "country": String,
+    "creation_time": Integer,
+    "latest_activity": Integer,
+    "preferred_mode": Integer,
+    "userpage_content": String,
+    "stats": Nested(player_stats_model),
 })
 
 leaderboard_model = api.model("Leaderboard", {
