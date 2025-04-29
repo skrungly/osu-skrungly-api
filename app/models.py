@@ -1,4 +1,4 @@
-from flask_restx.fields import DateTime, Float, Integer, String
+from flask_restx.fields import DateTime, Float, Integer, Nested, String
 
 from app import api
 
@@ -65,4 +65,30 @@ beatmap_model = api.model("Beatmap", {
     "od": Float,
     "hp": Float,
     "diff": Float,
+})
+
+score_model = api.model("Score", {
+    "id": Integer,
+    "map_md5": String,
+    "score": Integer,
+    "pp": Float,
+    "acc": Float,
+    "max_combo": Integer,
+    "mods": Integer,
+    "n300": Integer,
+    "n100": Integer,
+    "n50": Integer,
+    "nmiss": Integer,
+    "ngeki": Integer,
+    "nkatu": Integer,
+    "grade": String,
+    "status": Integer,
+    "mode": Integer,
+    "play_time": DateTime,
+    "time_elapsed": Integer,
+    "client_flags": Integer,
+    "userid": Integer,
+    "perfect": Integer,
+    "online_checksum": String,
+    "beatmap": Nested(beatmap_model)
 })

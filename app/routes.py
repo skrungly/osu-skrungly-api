@@ -13,6 +13,15 @@ MODE_NAMES = {
 }
 
 
+def _resolve_player_id(id_or_name: str):
+    if id_or_name.isdigit():
+        return int(id_or_name)
+
+    with db.cursor() as cursor:
+        cursor.execute("SELECT id FROM users WHERE name = %s", (id_or_name,))
+        return int(cursor.fetchone().get("id"))
+
+
 class PaginatedRequestParser(reqparse.RequestParser):
     def __init__(self, *args, max_limit=100, **kwargs):
         super().__init__(*args, **kwargs)
@@ -30,18 +39,36 @@ class PaginatedRequestParser(reqparse.RequestParser):
         return req_args
 
 
+@api.route("/scores/<int:score_id>")
+class ScoreAPI(Resource):
+    @api.marshal_with(models.score_model)
+    def get(self, score_id):
+        with db.cursor() as cursor:
+            cursor.execute("SELECT * FROM scores WHERE id = %s", (score_id,))
+            score_data = cursor.fetchone() or abort(404)
+
+            cursor.execute(
+                "SELECT * FROM maps WHERE md5 = %s", (score_data["map_md5"])
+            )
+
+            score_data["beatmap"] = cursor.fetchone()
+
+        return score_data
+
+
 @api.route("/players/<id_or_name>")
 class PlayerAPI(Resource):
     @api.marshal_with(models.player_model)
     def get(self, id_or_name):
-        identifier = "id" if id_or_name.isdigit() else "name"
+        if not (player_id := _resolve_player_id(id_or_name)):
+            abort(404)
 
         with db.cursor() as cursor:
-            cursor.execute(f"""
+            cursor.execute("""
                 SELECT id, name, safe_name, priv, country, creation_time,
                   latest_activity, preferred_mode, userpage_content
-                FROM users WHERE {identifier} = %s
-                """, (id_or_name,)
+                FROM users WHERE id = %s
+                """, (player_id,)
             )
 
             return cursor.fetchone() or abort(404)
@@ -52,22 +79,21 @@ class PlayerAPI(Resource):
 
 @api.route("/players/<id_or_name>/stats/<mode>")
 class PlayerStatsAPI(Resource):
+    def __init__(self, *args, **kwargs):
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument("mode", type=str, required=True)
+        super().__init__(*args, **kwargs)
+
     @api.marshal_with(models.player_stats_model)
-    def get(self, id_or_name, mode):
+    def get(self, id_or_name):
+        mode = self.reqparse.parse_args()["mode"]
         if not mode.isdigit():
             mode = MODE_NAMES.get(mode) or abort(404)
 
-        with db.cursor() as cursor:
-            # find the player id if we're given a name
-            if not id_or_name.isdigit():
-                cursor.execute(
-                    "SELECT id FROM users WHERE name = %s", (id_or_name,)
-                )
-                player_id = cursor.fetchone().get("id") or abort(404)
-            else:
-                player_id = id_or_name
+        if not (player_id := _resolve_player_id(id_or_name)):
+            abort(404)
 
-            # now fetch the stats if the player has any
+        with db.cursor() as cursor:
             cursor.execute("""
                 SELECT * FROM stats
                 WHERE mode = %s and id = %s and plays > 0
@@ -75,6 +101,79 @@ class PlayerStatsAPI(Resource):
             )
 
             return cursor.fetchone() or abort(404)
+
+
+@api.route("/players/<id_or_name>/scores")
+class PlayerScoresAPI(Resource):
+    def __init__(self, *args, **kwargs):
+        self.reqparse = PaginatedRequestParser()
+        self.reqparse.add_argument("sort", type=str, default="pp")
+        self.reqparse.add_argument("mode", type=str, required=True)
+        super().__init__(*args, **kwargs)
+
+    @api.marshal_with(models.score_model)
+    def get(self, id_or_name):
+        args = self.reqparse.parse_args()
+
+        mode = args["mode"]
+        if not mode.isdigit():
+            mode = MODE_NAMES.get(args["mode"]) or abort(404)
+
+        if not (player_id := _resolve_player_id(id_or_name)):
+            abort(404)
+
+        if args["sort"] == "pp":
+            query = """
+                SELECT m.*, s.* FROM scores s
+                INNER JOIN maps m ON m.md5 = s.map_md5
+                WHERE s.userid = %s AND s.mode = %s AND s.status = 2
+                ORDER BY s.pp DESC
+                LIMIT %s OFFSET %s
+                """
+
+        elif args["sort"] == "recent":
+            query = """
+                SELECT m.*, s.* FROM scores s
+                INNER JOIN maps m ON m.md5 = s.map_md5
+                WHERE s.userid = %s AND s.mode = %s AND s.status != 0
+                ORDER BY s.play_time DESC
+                LIMIT %s OFFSET %s
+                """
+        else:
+            abort(422)
+
+        with db.cursor() as cursor:
+            offset = args["limit"] * args["page"]
+            cursor.execute(query, (player_id, mode, args["limit"], offset))
+            score_and_beatmap = cursor.fetchall()
+
+        # the resulting data is a mix of map and score properties,
+        # which need to be separated to fit the score model
+        scores = []
+        for score_data in score_and_beatmap:
+            score = {}
+            beatmap = {}
+            for key, value in score_data.items():
+                # if the key name matches a column in either model,
+                # add it provisionally if it's not already there.
+                if key in models.score_model and key not in score:
+                    score[key] = value
+
+                if key in models.beatmap_model and key not in beatmap:
+                    beatmap[key] = value
+
+                # in the case of ambiguous keys, there will be a
+                # prefix ("s." or "m.") which should take priority
+                if key.startswith("s."):
+                    score[key[2:]] = value
+
+                elif key.startswith("m."):
+                    beatmap[key[2:]] = value
+
+            score["beatmap"] = beatmap
+            scores.append(score)
+
+        return scores
 
 
 @api.route("/leaderboard")
