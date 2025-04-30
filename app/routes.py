@@ -137,8 +137,8 @@ class PlayerScoresAPI(Resource):
             query = """
                 SELECT m.*, s.* FROM scores s
                 INNER JOIN maps m ON m.md5 = s.map_md5
-                WHERE s.userid = %s AND s.mode = %s
-                    AND s.status = 2 AND m.status = 2
+                WHERE s.userid = %s AND s.mode = %s AND s.status = 2
+                    AND (m.status = 2 OR m.status = 3)
                 ORDER BY s.pp DESC
                 LIMIT %s OFFSET %s
                 """
