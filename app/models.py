@@ -2,6 +2,15 @@ from flask_restx.fields import DateTime, Float, Integer, Nested, String
 
 from app import api
 
+global_stats_model = api.model("GlobalStats", {
+    "tscore": Integer,
+    "rscore": Integer,
+    "pp": Integer,
+    "plays": Integer,
+    "playtime": Integer,
+    "total_hits": Integer,
+})
+
 player_stats_model = api.model("PlayerStats", {
     "id": Integer,
     "mode": Integer,

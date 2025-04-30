@@ -234,3 +234,17 @@ class BeatmapAPI(Resource):
         with db.cursor() as cursor:
             cursor.execute("SELECT * FROM maps WHERE id = %s", (map_id,))
             return cursor.fetchone() or abort(404)
+
+
+@api.route("/stats")
+class GlobalStatsAPI(Resource):
+    @api.marshal_with(models.global_stats_model)
+    def get(self):
+        stats = {}
+
+        with db.cursor() as cursor:
+            for stat_name in models.global_stats_model:
+                cursor.execute(f"SELECT SUM({stat_name}) FROM stats")
+                stats[stat_name] = cursor.fetchone()[f"SUM({stat_name})"]
+
+        return stats
