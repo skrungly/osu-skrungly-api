@@ -1,8 +1,11 @@
 import os
 
+from dotenv import load_dotenv
 import pymysql
 from flask import Flask
 from flask_restx import Api
+
+load_dotenv()
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ["SECRET_KEY"]
