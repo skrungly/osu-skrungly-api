@@ -17,9 +17,13 @@ def _resolve_player_id(id_or_name: str):
     if id_or_name.isdigit():
         return id_or_name
 
+    db.ping()
     with db.cursor() as cursor:
         cursor.execute("SELECT id FROM users WHERE name = %s", (id_or_name,))
-        return cursor.fetchone().get("id")
+        player_id = cursor.fetchone().get("id")
+        db.commit()
+
+    return player_id
 
 
 def _resolve_mode_id(id_or_name: str):
@@ -50,16 +54,23 @@ class PaginatedRequestParser(reqparse.RequestParser):
 class ScoreAPI(Resource):
     @api.marshal_with(models.score_model)
     def get(self, score_id):
+        db.ping()
         with db.cursor() as cursor:
             cursor.execute("SELECT * FROM scores WHERE id = %s", (score_id,))
-            score_data = cursor.fetchone() or abort(404)
+            score_data = cursor.fetchone()
+
+            if not score_data:
+                db.commit()
+                abort(404)
 
             cursor.execute(
                 "SELECT * FROM maps WHERE md5 = %s", (score_data["map_md5"])
             )
 
-            score_data["beatmap"] = cursor.fetchone()
+            map_data = cursor.fetchone()
+            db.commit()
 
+        score_data["beatmap"] = map_data
         return score_data
 
 
@@ -70,6 +81,7 @@ class PlayerAPI(Resource):
         if not (player_id := _resolve_player_id(id_or_name)):
             abort(404)
 
+        db.ping()
         with db.cursor() as cursor:
             cursor.execute("""
                 SELECT id, name, safe_name, priv, country, creation_time,
@@ -78,11 +90,16 @@ class PlayerAPI(Resource):
                 """, (player_id,)
             )
 
-            player_data = cursor.fetchone() or abort(404)
+            player_data = cursor.fetchone()
+            if not player_data:
+                db.commit()
+                abort(404)
 
             cursor.execute("SELECT * FROM stats WHERE id = %s", (player_id,))
-            player_data["stats"] = cursor.fetchall()
+            stats_data = cursor.fetchall()
+            db.commit()
 
+        player_data["stats"] = stats_data
         return player_data
 
     def put(self, user_id):
@@ -105,6 +122,7 @@ class PlayerStatsAPI(Resource):
         if not (player_id := _resolve_player_id(id_or_name)):
             abort(404)
 
+        db.ping()
         with db.cursor() as cursor:
             cursor.execute("""
                 SELECT * FROM stats
@@ -112,7 +130,10 @@ class PlayerStatsAPI(Resource):
                 """, (mode_id, player_id),
             )
 
-            return cursor.fetchone() or abort(404)
+            stats_data = cursor.fetchone()
+            db.commit()
+
+        return stats_data or abort(404)
 
 
 @api.route("/players/<id_or_name>/scores")
@@ -154,10 +175,12 @@ class PlayerScoresAPI(Resource):
         else:
             abort(422)
 
+        db.ping()
         with db.cursor() as cursor:
             offset = args["limit"] * args["page"]
             cursor.execute(query, (player_id, mode_id, args["limit"], offset))
             score_and_beatmap = cursor.fetchall()
+            db.commit()
 
         # the resulting data is a mix of map and score properties,
         # which need to be separated to fit the score model
@@ -203,6 +226,7 @@ class LeaderboardAPI(Resource):
         if args["sort"] not in ("pp", "plays", "tscore", "rscore"):
             abort(422)
 
+        db.ping()
         with db.cursor() as cursor:
             offset = args["limit"] * args["page"]
             cursor.execute(f"""
@@ -215,25 +239,36 @@ class LeaderboardAPI(Resource):
                 """, (args["mode"], args["limit"], offset)
             )
 
-            return cursor.fetchall()
+            leaderboard_data = cursor.fetchall()
+            db.commit()
+
+        return leaderboard_data
 
 
 @api.route("/mapsets/<int:set_id>")
 class BeatmapSetAPI(Resource):
     @api.marshal_with(models.beatmap_model)
     def get(self, set_id):
+        db.ping()
         with db.cursor() as cursor:
             cursor.execute("SELECT * FROM maps WHERE set_id = %s", (set_id,))
-            return cursor.fetchall() or abort(404)
+            mapset_data = cursor.fetchall()
+            db.commit()
+
+        return mapset_data or abort(404)
 
 
 @api.route("/maps/<int:map_id>")
 class BeatmapAPI(Resource):
     @api.marshal_with(models.beatmap_model)
     def get(self, map_id):
+        db.ping()
         with db.cursor() as cursor:
             cursor.execute("SELECT * FROM maps WHERE id = %s", (map_id,))
-            return cursor.fetchone() or abort(404)
+            map_data = cursor.fetchone()
+            db.commit()
+
+        return map_data or abort(404)
 
 
 @api.route("/stats")
@@ -242,9 +277,11 @@ class GlobalStatsAPI(Resource):
     def get(self):
         stats = {}
 
+        db.ping()
         with db.cursor() as cursor:
             for stat_name in models.global_stats_model:
                 cursor.execute(f"SELECT SUM({stat_name}) FROM stats")
                 stats[stat_name] = cursor.fetchone()[f"SUM({stat_name})"]
+                db.commit()
 
         return stats

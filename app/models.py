@@ -16,12 +16,14 @@ class User:
         if not username or not password:
             return None
 
+        db.ping()
         with db.cursor() as cursor:
             cursor.execute(
                 "SELECT id, pw_bcrypt FROM users WHERE name = %s", (username,)
             )
 
             user_info = cursor.fetchone()
+            db.commit()
             if not user_info:
                 return None
 
