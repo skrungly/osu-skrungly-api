@@ -1,8 +1,9 @@
 import os
 
-from dotenv import load_dotenv
 import pymysql
+from dotenv import load_dotenv
 from flask import Flask
+from flask_jwt_extended import JWTManager
 from flask_restx import Api
 
 load_dotenv()
@@ -10,6 +11,7 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ["SECRET_KEY"]
 
+jwt = JWTManager(app)
 api = Api(app)
 
 db = pymysql.connect(
