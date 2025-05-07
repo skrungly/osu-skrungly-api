@@ -1,3 +1,6 @@
+import hashlib
+
+import bcrypt
 from flask import abort
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restx import reqparse, Resource
@@ -80,6 +83,7 @@ class PlayerAPI(Resource):
     def __init__(self, *args, **kwargs):
         self.reqparse = reqparse.RequestParser()
         self.reqparse.add_argument("name", type=str)
+        self.reqparse.add_argument("password", type=str)
         self.reqparse.add_argument("userpage_content", type=str)
         super().__init__(*args, **kwargs)
 
@@ -122,18 +126,25 @@ class PlayerAPI(Resource):
 
         # specifically check against None to allow for "" (empty)
         # so that we may return a more specific error response.
-        if args["name"] is not None:
-            if not utils.valid_username(args["name"]):
+        if (new_name := args["name"]) is not None:
+            if not utils.valid_username(new_name):
                 abort(422)
 
-            set_fields["name"] = args["name"]
-            set_fields["safe_name"] = args["name"].lower().replace(" ", "_")
+            set_fields["name"] = new_name
+            set_fields["safe_name"] = new_name.lower().replace(" ", "_")
 
-        if args["userpage_content"] is not None:
-            if len(args["userpage_content"]) > 2048:
+        if (new_password := args["password"]) is not None:
+            if not utils.valid_password(new_password):
                 abort(422)
 
-            set_fields["userpage_content"] = args["userpage_content"]
+            pw_md5 = hashlib.md5(new_password.encode()).hexdigest().encode()
+            set_fields["pw_bcrypt"] = bcrypt.hashpw(pw_md5, bcrypt.gensalt())
+
+        if (new_userpage := args["userpage_content"]) is not None:
+            if len(new_userpage) > 2048:
+                abort(422)
+
+            set_fields["userpage_content"] = new_userpage
 
         set_query = ", ".join(f"{key} = %({key})s" for key in set_fields)
 

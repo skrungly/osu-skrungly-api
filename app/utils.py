@@ -5,8 +5,8 @@ from app import db
 USERNAME_REGEX = re.compile(r"^[\w \[\]-]{2,15}$")
 
 
-# username validation logic is copied from bancho.py
-# TODO: create an endpoint on bancho for checking valid names,
+# name and password validation logic is copied from bancho.py
+# TODO: create an endpoint on bancho for checking these things,
 # so that this logic is not repeated across services!
 def valid_username(name):
     if not USERNAME_REGEX.match(name):
@@ -22,6 +22,16 @@ def valid_username(name):
         db.commit()
 
     if existing_entry:
+        return False
+
+    return True
+
+
+def valid_password(password):
+    if not 8 <= len(password) <= 32:
+        return False
+
+    if len(set(password)) <= 3:
         return False
 
     return True
