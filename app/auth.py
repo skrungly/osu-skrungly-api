@@ -3,7 +3,12 @@ import hashlib
 import bcrypt
 from flask import jsonify, request
 from flask_jwt_extended import (
-    create_access_token, get_jwt_identity, jwt_required, set_access_cookies
+    create_access_token,
+    create_refresh_token,
+    get_jwt_identity,
+    jwt_required,
+    set_access_cookies,
+    set_refresh_cookies,
 )
 
 from app import app, db
@@ -33,39 +38,56 @@ def authenticate(name=None, password=None):
     return user_info["id"]
 
 
-@app.route("/auth", methods=["GET", "POST"])
+@app.route("/auth", methods=["GET"])
 @jwt_required(optional=True)
-def auth():
-    if request.method == "POST":
-        cookie = request.args.get("cookie")
-        name = request.args.get("name")
-        password = request.args.get("password")
+def auth_check():
+    return {
+        "success": True,
+        "logged_in_as": get_jwt_identity(),
+    }
 
-        user_id = authenticate(name, password)
-        if user_id is None:
-            return {
-                "success": False,
-                "message": "invalid username or password"
-            }, 403
 
-        access_token = create_access_token(identity=str(user_id))
-        response_data = {"success": True}
+@app.route("/auth/login", methods=["POST"])
+def auth_login():
+    name = request.args.get("name")
+    password = request.args.get("password")
 
-        # two options: if the request wants the JWT as a cookie,
-        # then use `set_access_cookies` for CSRF protection with
-        # double-submit verification. otherwise, just send the
-        # access token in the response.
-        if cookie is not None:
-            response = jsonify(response_data)
-            set_access_cookies(response, access_token)
-        else:
-            response_data["access_token"] = access_token
-            response = jsonify(response_data)
+    user_id = authenticate(name, password)
+    if user_id is None:
+        return jsonify(
+            success=False,
+            message="invalid username or password"
+        ), 403
 
+    access_token = create_access_token(identity=str(user_id))
+    refresh_token = create_refresh_token(identity=str(user_id))
+
+    # two options: if the request wants the JWT as a cookie,
+    # then use `set_access_cookies` for CSRF protection with
+    # double-submit verification. otherwise, just send the
+    # access token in the response.
+    if "cookie" in request.args:
+        response = jsonify(success=True)
+        set_access_cookies(response, access_token)
+        set_refresh_cookies(response, refresh_token)
         return response
 
-    elif request.method == "GET":
-        return {
-            "success": True,
-            "logged_in_as": get_jwt_identity(),
-        }
+    return jsonify(
+        success=True,
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
+
+
+@app.route("/auth/refresh", methods=["POST"])
+@jwt_required(refresh=True)
+def auth_refresh():
+    identity = get_jwt_identity()
+    access_token = create_access_token(identity=identity)
+
+    if "cookie" in request.args:
+        response = jsonify(success=True)
+        set_access_cookies(response, access_token)
+        return response
+
+    return jsonify(success=True, access_token=access_token)
