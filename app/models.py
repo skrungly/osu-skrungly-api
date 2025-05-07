@@ -1,38 +1,6 @@
-import hashlib
-from dataclasses import dataclass
-
-import bcrypt
 from flask_restx.fields import DateTime, Float, Integer, Nested, String
 
-from app import api, db
-
-
-@dataclass
-class User:
-    id: int
-
-    @classmethod
-    def authenticate(cls, username=None, password=None):
-        if not username or not password:
-            return None
-
-        db.ping()
-        with db.cursor() as cursor:
-            cursor.execute(
-                "SELECT id, pw_bcrypt FROM users WHERE name = %s", (username,)
-            )
-
-            user_info = cursor.fetchone()
-            db.commit()
-            if not user_info:
-                return None
-
-        # the bancho.py service uses a double hash
-        pw_md5 = hashlib.md5(password.encode()).hexdigest().encode()
-        if not bcrypt.checkpw(pw_md5, user_info["pw_bcrypt"].encode()):
-            return None
-
-        return cls(user_info["id"])
+from app import api
 
 
 global_stats_model = api.model("GlobalStats", {

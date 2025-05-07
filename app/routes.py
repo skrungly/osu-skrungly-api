@@ -1,7 +1,4 @@
 from flask import abort
-from flask_jwt_extended import (
-    create_access_token, get_jwt_identity, jwt_required
-)
 from flask_restx import reqparse, Resource
 
 from app import api, db, models
@@ -288,25 +285,3 @@ class GlobalStatsAPI(Resource):
                 db.commit()
 
         return stats
-
-
-@api.route("/login")
-class LoginAPI(Resource):
-    def __init__(self, *args, **kwargs):
-        self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument("username", type=str, required=True)
-        self.reqparse.add_argument("password", type=str, required=True)
-        super().__init__(*args, **kwargs)
-
-    @jwt_required()
-    def get(self):
-        return {"logged_in_as": get_jwt_identity()}
-
-    def post(self):
-        login_args = self.reqparse.parse_args()
-
-        user = models.User.authenticate(**login_args)
-        if user is None:
-            abort(401)
-
-        return {"access_token": create_access_token(identity=str(user.id))}
