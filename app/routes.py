@@ -1,7 +1,8 @@
 from flask import abort
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restx import reqparse, Resource
 
-from app import api, db, models
+from app import api, db, models, utils
 
 
 MODE_NAMES = {
@@ -76,6 +77,12 @@ class ScoreAPI(Resource):
 
 @api.route("/players/<id_or_name>")
 class PlayerAPI(Resource):
+    def __init__(self, *args, **kwargs):
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument("name", type=str)
+        self.reqparse.add_argument("userpage_content", type=str)
+        super().__init__(*args, **kwargs)
+
     @api.marshal_with(models.player_model)
     def get(self, id_or_name):
         if not (player_id := _resolve_player_id(id_or_name)):
@@ -102,8 +109,45 @@ class PlayerAPI(Resource):
         player_data["stats"] = stats_data
         return player_data
 
-    def put(self, user_id):
-        ...
+    @jwt_required()
+    def put(self, id_or_name):
+        if not (player_id := _resolve_player_id(id_or_name)):
+            abort(404)
+
+        if str(player_id) != get_jwt_identity():
+            abort(403)
+
+        args = self.reqparse.parse_args()
+        set_fields = {}
+
+        # specifically check against None to allow for "" (empty)
+        # so that we may return a more specific error response.
+        if args["name"] is not None:
+            if not utils.valid_username(args["name"]):
+                abort(422)
+
+            set_fields["name"] = args["name"]
+            set_fields["safe_name"] = args["name"].lower().replace(" ", "_")
+
+        if args["userpage_content"] is not None:
+            if len(args["userpage_content"]) > 2048:
+                abort(422)
+
+            set_fields["userpage_content"] = args["userpage_content"]
+
+        set_query = ", ".join(f"{key} = %({key})s" for key in set_fields)
+
+        db.ping()
+        with db.cursor() as cursor:
+            query_args = set_fields | {"id": player_id}
+            cursor.execute(
+                f"UPDATE users SET {set_query} WHERE id = %(id)s", query_args
+            )
+
+            db.commit()
+
+        # TODO: normalise this sort of response
+        return {"success": True}
 
 
 @api.route("/players/<id_or_name>/stats")
