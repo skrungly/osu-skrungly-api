@@ -1,0 +1,18 @@
+name: osu-api
+
+services:
+  flask:
+    build: .
+    volumes:
+      - bancho-data:/.data
+    restart: unless-stopped
+
+volumes:
+  bancho-data:
+    name: osu-bancho
+    external: true
+
+networks:
+  default:
+    name: osu
+    external: true
