@@ -24,10 +24,11 @@ def _resolve_player_id(id_or_name: str):
     db.ping()
     with db.cursor() as cursor:
         cursor.execute("SELECT id FROM users WHERE name = %s", (id_or_name,))
-        player_id = cursor.fetchone().get("id")
+        player_id = cursor.fetchone()
         db.commit()
 
-    return player_id
+    if player_id is not None:
+        return player_id["id"]
 
 
 def _resolve_mode_id(id_or_name: str):
@@ -171,11 +172,13 @@ class PlayerStatsAPI(Resource):
     @api.marshal_with(models.player_stats_model)
     def get(self, id_or_name):
         args = self.reqparse.parse_args()
-        if not (mode_id := _resolve_mode_id(args["mode"])):
-            abort(422)
 
         if not (player_id := _resolve_player_id(id_or_name)):
             abort(404)
+
+        mode_id = _resolve_mode_id(args["mode"])
+        if mode_id is None:
+            abort(422)
 
         db.ping()
         with db.cursor() as cursor:
@@ -203,11 +206,12 @@ class PlayerScoresAPI(Resource):
     def get(self, id_or_name):
         args = self.reqparse.parse_args()
 
-        if not (mode_id := _resolve_mode_id(args["mode"])):
-            abort(422)
-
         if not (player_id := _resolve_player_id(id_or_name)):
             abort(404)
+
+        mode_id = _resolve_mode_id(args["mode"])
+        if mode_id is None:
+            abort(422)
 
         if args["sort"] == "pp":
             query = """
