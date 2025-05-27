@@ -12,6 +12,7 @@ dotenv.load_dotenv()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ["SECRET_KEY"]
 app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
+app.config["JWT_ERROR_MESSAGE_KEY"] = "message"
 
 jwt = JWTManager(app)
 api = Api(app)

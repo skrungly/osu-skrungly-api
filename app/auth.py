@@ -5,14 +5,18 @@ from flask import jsonify, request
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
+    get_jti,
     get_jwt,
     get_jwt_identity,
     jwt_required,
     set_access_cookies,
     set_refresh_cookies,
+    unset_jwt_cookies,
 )
 
 from app import app, db, jwt, redis
+
+REFRESH_TOKEN_CLAIM = "refresh"
 
 
 def authenticate(name=None, password=None):
@@ -36,7 +40,19 @@ def authenticate(name=None, password=None):
     if not bcrypt.checkpw(pw_md5, user_info["pw_bcrypt"].encode()):
         return None
 
-    return user_info["id"]
+    return str(user_info["id"])
+
+
+def create_tokens(identity, refresh_token=None):
+    if refresh_token is None:
+        refresh_token = create_refresh_token(identity=identity)
+
+    access_token = create_access_token(
+        identity=identity,
+        additional_claims={REFRESH_TOKEN_CLAIM: refresh_token}
+    )
+
+    return access_token, refresh_token
 
 
 @jwt.token_in_blocklist_loader
@@ -48,10 +64,7 @@ def check_token_blocklist(jwt_header, jwt_payload):
 @app.route("/auth", methods=["GET"])
 @jwt_required(optional=True)
 def auth_check():
-    return {
-        "success": True,
-        "logged_in_as": get_jwt_identity(),
-    }
+    return jsonify(identity=get_jwt_identity())
 
 
 @app.route("/auth/login", methods=["POST"])
@@ -61,54 +74,80 @@ def auth_login():
 
     user_id = authenticate(name, password)
     if user_id is None:
-        return jsonify(
-            success=False,
-            message="invalid username or password"
-        ), 403
+        return jsonify(message="invalid username or password"), 401
 
-    access_token = create_access_token(identity=str(user_id))
-    refresh_token = create_refresh_token(identity=str(user_id))
+    access_token, refresh_token = create_tokens(user_id)
 
     # two options: if the request wants the JWT as a cookie,
     # then use `set_access_cookies` for CSRF protection with
     # double-submit verification. otherwise, just send the
     # access token in the response.
     if "cookie" in request.args:
-        response = jsonify(success=True)
+        response = jsonify(identity=user_id)
         set_access_cookies(response, access_token)
         set_refresh_cookies(response, refresh_token)
         return response
 
     return jsonify(
-        success=True,
+        identity=user_id,
         access_token=access_token,
-        refresh_token=refresh_token,
+        refresh_token=refresh_token
     )
 
 
 @app.route("/auth/logout", methods=["DELETE"])
-@jwt_required(verify_type=False)
+@jwt_required()
 def auth_logout():
     token = get_jwt()
-    token_type = token["type"].upper()
+    redis.set(token["jti"], "", ex=app.config["JWT_ACCESS_TOKEN_EXPIRES"])
 
-    if token_type not in ("ACCESS", "REFRESH"):
-        return jsonify(success=False, message="invalid token type"), 422
+    refresh_token = token.get(REFRESH_TOKEN_CLAIM)
+    refresh_jti = get_jti(refresh_token)
+    redis.set(refresh_jti, "", ex=app.config["JWT_REFRESH_TOKEN_EXPIRES"])
 
-    expires = app.config[f"JWT_{token_type}_TOKEN_EXPIRES"]
-    redis.set(token["jti"], "", ex=expires)
-    return jsonify(success=True)
+    response = jsonify(identity=None)
+    unset_jwt_cookies(response)
+    return response
 
 
 @app.route("/auth/refresh", methods=["POST"])
 @jwt_required(refresh=True)
 def auth_refresh():
     identity = get_jwt_identity()
-    access_token = create_access_token(identity=identity)
 
-    if "cookie" in request.args:
-        response = jsonify(success=True)
+    # provisional values
+    using_cookies = False
+    refresh_token = None
+
+    # grab the refresh token from the current response headers so that
+    # it can be inserted into the new access token claims. first try
+    # scanning the "Authorization" header (or whatever is configured)
+    auth_bearer = request.headers.environ.get(
+        f"HTTP_{app.config["JWT_HEADER_NAME"].upper()}"
+    )
+
+    if auth_bearer is not None:
+        # extract the token from the "Bearer <Token>" formatting
+        refresh_token = auth_bearer.replace(
+            app.config["JWT_HEADER_TYPE"], ""
+        ).strip()
+
+    else:
+        using_cookies = True
+        refresh_token = request.cookies.get(
+            app.config["JWT_REFRESH_COOKIE_NAME"]
+        )
+
+    # we should definitely have a `refresh_token` value now, but it
+    # would feel wrong to skip this check:
+    if refresh_token is None:
+        return jsonify(message="unable to find refresh token"), 401
+
+    access_token, _ = create_tokens(identity, refresh_token)
+
+    if using_cookies:
+        response = jsonify(identity=identity)
         set_access_cookies(response, access_token)
         return response
 
-    return jsonify(success=True, access_token=access_token)
+    return jsonify(identity=identity, access_token=access_token)
