@@ -5,13 +5,14 @@ from flask import jsonify, request
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
+    get_jwt,
     get_jwt_identity,
     jwt_required,
     set_access_cookies,
     set_refresh_cookies,
 )
 
-from app import app, db
+from app import app, db, jwt, redis
 
 
 def authenticate(name=None, password=None):
@@ -36,6 +37,12 @@ def authenticate(name=None, password=None):
         return None
 
     return user_info["id"]
+
+
+@jwt.token_in_blocklist_loader
+def check_token_blocklist(jwt_header, jwt_payload):
+    jti = jwt_payload["jti"]
+    return redis.get(jti) is not None
 
 
 @app.route("/auth", methods=["GET"])
@@ -77,6 +84,20 @@ def auth_login():
         access_token=access_token,
         refresh_token=refresh_token,
     )
+
+
+@app.route("/auth/logout", methods=["DELETE"])
+@jwt_required(verify_type=False)
+def auth_logout():
+    token = get_jwt()
+    token_type = token["type"].upper()
+
+    if token_type not in ("ACCESS", "REFRESH"):
+        return jsonify(success=False, message="invalid token type"), 422
+
+    expires = app.config[f"JWT_{token_type}_TOKEN_EXPIRES"]
+    redis.set(token["jti"], "", ex=expires)
+    return jsonify(success=True)
 
 
 @app.route("/auth/refresh", methods=["POST"])

@@ -4,15 +4,34 @@ services:
   flask:
     build: .
     volumes:
-      - bancho-data:/.data
+      - osu-bancho:/.data
+    networks:
+      - default
+      - osu-mysql
+      - osu-nginx
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_started
+
+  redis:
+    image: bitnami/redis:latest
+    user: root
+    volumes:
+      - redis-data:/bitnami/redis/data
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_PORT_NUMBER: ${REDIS_PORT}
     restart: unless-stopped
 
 volumes:
-  bancho-data:
+  redis-data:
+  osu-bancho:
     name: osu-bancho
     external: true
 
 networks:
-  default:
-    name: osu
+  osu-mysql:
+    external: true
+  osu-nginx:
     external: true
