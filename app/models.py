@@ -1,6 +1,6 @@
 from flask_restx.fields import DateTime, Float, Integer, Nested, String
 
-from app import api
+from app.api import api
 
 
 global_stats_model = api.model("GlobalStats", {

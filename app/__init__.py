@@ -4,7 +4,6 @@ import dotenv
 import pymysql
 from flask import Flask
 from flask_jwt_extended import JWTManager
-from flask_restx import Api
 from redis import Redis
 
 dotenv.load_dotenv()
@@ -17,7 +16,6 @@ app.config["JWT_SESSION_COOKIE"] = False
 app.config["JWT_COOKIE_SECURE"] = True
 
 jwt = JWTManager(app)
-api = Api(app)
 
 redis = Redis(
     host=os.environ.get("REDIS_HOST", "redis"),
@@ -37,4 +35,5 @@ db = pymysql.connect(
     cursorclass=pymysql.cursors.DictCursor,
 )
 
-from app import auth, routes  # noqa: F401 E402
+from app import logging, routes  # noqa: F401 E402
+from app.api import api  # noqa: F401 E402

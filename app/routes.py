@@ -5,7 +5,8 @@ from flask import abort
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restx import reqparse, Resource
 
-from app import api, db, models, utils
+from app import db, models, utils
+from app.api import api
 
 
 MODE_NAMES = {
