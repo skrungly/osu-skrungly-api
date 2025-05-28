@@ -1,7 +1,6 @@
 import hashlib
 
 import bcrypt
-import logging
 from flask import jsonify, request
 from flask_jwt_extended import (
     create_access_token,
@@ -25,8 +24,6 @@ namespace = api.namespace(
     name="auth",
     description="manage authentication and tokens",
 )
-
-namespace.logger.setLevel(logging.DEBUG)
 
 
 def authenticate(name=None, password=None):
