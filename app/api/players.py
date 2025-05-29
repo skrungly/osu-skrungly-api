@@ -1,3 +1,4 @@
+import functools
 import hashlib
 
 import bcrypt
@@ -6,11 +7,9 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import reqparse, Resource
 
 from app import db, models
-from app.api import api
+from app.api import api, PaginatedRequestParser
 from app.utils import (
-    PaginatedRequestParser,
     resolve_mode_id,
-    resolve_player_id,
     valid_password,
     valid_username,
 )
@@ -19,6 +18,30 @@ namespace = api.namespace(
     name="players",
     description="players and associated info (stats, scores, etc.)",
 )
+
+
+def resolve_player_id(api_method):
+
+    @functools.wraps(api_method)
+    def _check_player_id(api, id_or_name):
+        if id_or_name.isdigit():
+            return api_method(api, int(id_or_name))
+
+        db.ping()
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT id FROM users WHERE name = %s", (id_or_name,)
+            )
+
+            player_id = cursor.fetchone()
+            db.commit()
+
+        if player_id is not None:
+            return api_method(api, player_id["id"])
+
+        return {"message": f"player '{id_or_name}' does not exist."}, 404
+
+    return _check_player_id
 
 
 @namespace.route("")
@@ -65,10 +88,8 @@ class PlayerAPI(Resource):
         super().__init__(*args, **kwargs)
 
     @api.marshal_with(models.player_model)
-    def get(self, id_or_name):
-        if not (player_id := resolve_player_id(id_or_name)):
-            abort(404)
-
+    @resolve_player_id
+    def get(self, player_id):
         db.ping()
         with db.cursor() as cursor:
             cursor.execute("""
@@ -91,10 +112,9 @@ class PlayerAPI(Resource):
         return player_data
 
     @jwt_required()
-    def put(self, id_or_name):
-        if not (player_id := resolve_player_id(id_or_name)):
-            abort(404)
-
+    @resolve_player_id
+    def put(self, player_id):
+        # TODO: this could be a decorator in its own right:
         if str(player_id) != get_jwt_identity():
             abort(403)
 
@@ -146,11 +166,9 @@ class PlayerStatsAPI(Resource):
         super().__init__(*args, **kwargs)
 
     @api.marshal_with(models.player_stats_model)
-    def get(self, id_or_name):
+    @resolve_player_id
+    def get(self, player_id):
         args = self.reqparse.parse_args()
-
-        if not (player_id := resolve_player_id(id_or_name)):
-            abort(404)
 
         mode_id = resolve_mode_id(args["mode"])
         if mode_id is None:
@@ -179,11 +197,9 @@ class PlayerScoresAPI(Resource):
         super().__init__(*args, **kwargs)
 
     @api.marshal_with(models.score_model)
-    def get(self, id_or_name):
+    @resolve_player_id
+    def get(self, player_id):
         args = self.reqparse.parse_args()
-
-        if not (player_id := resolve_player_id(id_or_name)):
-            abort(404)
 
         mode_id = resolve_mode_id(args["mode"])
         if mode_id is None:
