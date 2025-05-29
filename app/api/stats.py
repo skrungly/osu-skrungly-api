@@ -8,18 +8,19 @@ namespace = api.namespace(
     description="retreive global server stats",
 )
 
+global_stats_schema = models.GlobalStatsSchema()
+
 
 @namespace.route("")
 class GlobalStatsAPI(Resource):
-    @api.marshal_with(models.global_stats_model)
     def get(self):
         stats = {}
 
         db.ping()
         with db.cursor() as cursor:
-            for stat_name in models.global_stats_model:
+            for stat_name in global_stats_schema.fields:
                 cursor.execute(f"SELECT SUM({stat_name}) FROM stats")
                 stats[stat_name] = cursor.fetchone()[f"SUM({stat_name})"]
                 db.commit()
 
-        return stats
+        return global_stats_schema.dump(stats)

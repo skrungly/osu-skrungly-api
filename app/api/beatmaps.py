@@ -15,9 +15,11 @@ set_namespace = api.namespace(
 )
 
 
+beatmap_schema = models.BeatmapSchema()
+
+
 @set_namespace.route("/<int:set_id>")
 class BeatmapSetAPI(Resource):
-    @api.marshal_with(models.beatmap_model)
     def get(self, set_id):
         db.ping()
         with db.cursor() as cursor:
@@ -25,12 +27,11 @@ class BeatmapSetAPI(Resource):
             mapset_data = cursor.fetchall()
             db.commit()
 
-        return mapset_data or abort(404)
+        return beatmap_schema.dump(mapset_data, many=True) or abort(404)
 
 
 @map_namespace.route("/<int:map_id>")
 class BeatmapAPI(Resource):
-    @api.marshal_with(models.beatmap_model)
     def get(self, map_id):
         db.ping()
         with db.cursor() as cursor:
@@ -38,4 +39,4 @@ class BeatmapAPI(Resource):
             map_data = cursor.fetchone()
             db.commit()
 
-        return map_data or abort(404)
+        return beatmap_schema.dump(map_data) or abort(404)

@@ -6,13 +6,13 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import bcrypt
-from flask import abort, send_file
+from flask import abort, request, send_file
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from flask_restx import reqparse, Resource
+from flask_restx import Resource
 from werkzeug.utils import secure_filename
 
 from app import db, models
-from app.api import api, PaginatedRequestParser, upload_parser
+from app.api import api
 from app.utils import (
     MAX_SKIN_SIZE,
     OSK_DIR,
@@ -26,6 +26,13 @@ namespace = api.namespace(
     name="players",
     description="players and associated info (stats, scores, etc.)",
 )
+
+player_schema = models.PlayerSchema()
+player_stats_schema = models.PlayerStatsSchema()
+
+beatmap_schema = models.BeatmapSchema()
+leaderboard_schema = models.LeaderboardSchema()
+score_schema = models.ScoreSchema()
 
 
 def resolve_player_id(api_method):
@@ -53,15 +60,12 @@ def resolve_player_id(api_method):
 
 @namespace.route("")
 class PlayerListAPI(Resource):
-    def __init__(self, *args, **kwargs):
-        self.reqparse = PaginatedRequestParser()
-        self.reqparse.add_argument("sort", type=str, default="pp")
-        self.reqparse.add_argument("mode", type=str, required=True)
-        super().__init__(*args, **kwargs)
-
-    @api.marshal_with(models.leaderboard_model)
     def get(self):
-        args = self.reqparse.parse_args()
+        args = models.ModeListOptionsSchema().load(request.args)
+
+        mode_id = resolve_mode_id(args["mode"])
+        if mode_id is None:
+            abort(422)
 
         if args["sort"] not in ("pp", "plays", "tscore", "rscore"):
             abort(422)
@@ -82,19 +86,11 @@ class PlayerListAPI(Resource):
             leaderboard_data = cursor.fetchall()
             db.commit()
 
-        return leaderboard_data
+        return leaderboard_schema.dump(leaderboard_data, many=True)
 
 
 @namespace.route("/<id_or_name>")
 class PlayerAPI(Resource):
-    def __init__(self, *args, **kwargs):
-        self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument("name", type=str)
-        self.reqparse.add_argument("password", type=str)
-        self.reqparse.add_argument("userpage_content", type=str)
-        super().__init__(*args, **kwargs)
-
-    @api.marshal_with(models.player_model)
     @resolve_player_id
     def get(self, player_id):
         db.ping()
@@ -116,7 +112,7 @@ class PlayerAPI(Resource):
             db.commit()
 
         player_data["stats"] = stats_data
-        return player_data
+        return player_schema.dump(player_data)
 
     @jwt_required()
     @resolve_player_id
@@ -125,26 +121,27 @@ class PlayerAPI(Resource):
         if str(player_id) != get_jwt_identity():
             abort(403)
 
-        args = self.reqparse.parse_args()
+        # TODO: maybe move validation to the schema itself
+        args = player_schema.load(request.get_json())
         set_fields = {}
 
         # specifically check against None to allow for "" (empty)
         # so that we may return a more specific error response.
-        if (new_name := args["name"]) is not None:
+        if (new_name := args.get("name")) is not None:
             if not valid_username(new_name):
                 abort(422)
 
             set_fields["name"] = new_name
             set_fields["safe_name"] = new_name.lower().replace(" ", "_")
 
-        if (new_password := args["password"]) is not None:
+        if (new_password := args.get("password")) is not None:
             if not valid_password(new_password):
                 abort(422)
 
             pw_md5 = hashlib.md5(new_password.encode()).hexdigest().encode()
             set_fields["pw_bcrypt"] = bcrypt.hashpw(pw_md5, bcrypt.gensalt())
 
-        if (new_userpage := args["userpage_content"]) is not None:
+        if (new_userpage := args.get("userpage_content")) is not None:
             if len(new_userpage) > 2048:
                 abort(422)
 
@@ -161,21 +158,14 @@ class PlayerAPI(Resource):
 
             db.commit()
 
-        # TODO: normalise this sort of response
-        return {"success": True}
+        return "", 204
 
 
 @namespace.route("/<id_or_name>/stats")
 class PlayerStatsAPI(Resource):
-    def __init__(self, *args, **kwargs):
-        self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument("mode", type=str, required=True)
-        super().__init__(*args, **kwargs)
-
-    @api.marshal_with(models.player_stats_model)
     @resolve_player_id
     def get(self, player_id):
-        args = self.reqparse.parse_args()
+        args = models.PlayerStatsOptionsSchema().load(request.args)
 
         mode_id = resolve_mode_id(args["mode"])
         if mode_id is None:
@@ -192,21 +182,14 @@ class PlayerStatsAPI(Resource):
             stats_data = cursor.fetchone()
             db.commit()
 
-        return stats_data or abort(404)
+        return player_stats_schema.dump(stats_data) or abort(404)
 
 
 @namespace.route("/<id_or_name>/scores")
 class PlayerScoresAPI(Resource):
-    def __init__(self, *args, **kwargs):
-        self.reqparse = PaginatedRequestParser()
-        self.reqparse.add_argument("sort", type=str, default="pp")
-        self.reqparse.add_argument("mode", type=str, required=True)
-        super().__init__(*args, **kwargs)
-
-    @api.marshal_with(models.score_model)
     @resolve_player_id
     def get(self, player_id):
-        args = self.reqparse.parse_args()
+        args = models.ModeListOptionsSchema().load(request.args)
 
         mode_id = resolve_mode_id(args["mode"])
         if mode_id is None:
@@ -249,10 +232,10 @@ class PlayerScoresAPI(Resource):
             for key, value in score_data.items():
                 # if the key name matches a column in either model,
                 # add it provisionally if it's not already there.
-                if key in models.score_model and key not in score:
+                if key in score_schema.fields and key not in score:
                     score[key] = value
 
-                if key in models.beatmap_model and key not in beatmap:
+                if key in beatmap_schema.fields and key not in beatmap:
                     beatmap[key] = value
 
                 # in the case of ambiguous keys, there will be a
@@ -266,7 +249,7 @@ class PlayerScoresAPI(Resource):
             score["beatmap"] = beatmap
             scores.append(score)
 
-        return scores
+        return score_schema.dump(scores, many=True)
 
 
 @namespace.route("/<id_or_name>/skin")
@@ -289,13 +272,12 @@ class PlayerSkinAPI(Resource):
 
     @jwt_required()
     @resolve_player_id
-    @namespace.expect(upload_parser)
     def put(self, player_id):
         if str(player_id) != get_jwt_identity():
             abort(403)
 
-        args = upload_parser.parse_args()
-        osk_file = args["file"]
+        args = models.FileUploadSchema().load(request.files)
+        osk_file = request.files["file"]
 
         self._delete_skin_dirs(player_id)
 

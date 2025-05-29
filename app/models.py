@@ -1,105 +1,138 @@
-from flask_restx.fields import DateTime, Float, Integer, Nested, String
-
-from app.api import api
+from marshmallow import Schema, fields
 
 
-global_stats_model = api.model("GlobalStats", {
-    "tscore": Integer,
-    "rscore": Integer,
-    "pp": Integer,
-    "plays": Integer,
-    "playtime": Integer,
-    "total_hits": Integer,
-})
+# schemas for serialising data:
+class GlobalStatsSchema(Schema):
+    tscore = fields.Int()
+    rscore = fields.Int()
+    pp = fields.Int()
+    plays = fields.Int()
+    playtime = fields.Int()
+    total_hits = fields.Int()
 
-player_stats_model = api.model("PlayerStats", {
-    "id": Integer,
-    "mode": Integer,
-    "tscore": Integer,
-    "rscore": Integer,
-    "pp": Integer,
-    "plays": Integer,
-    "playtime": Integer,
-    "acc": Float,
-    "max_combo": Integer,
-    "total_hits": Integer,
-    "replay_views": Integer,
-    "xh_count": Integer,
-    "x_count": Integer,
-    "sh_count": Integer,
-    "s_count": Integer,
-    "a_count": Integer,
-})
 
-player_model = api.model("Player", {
-    "id": Integer,
-    "name": String,
-    "safe_name": String,
-    "priv": Integer,
-    "country": String,
-    "creation_time": Integer,
-    "latest_activity": Integer,
-    "preferred_mode": Integer,
-    "userpage_content": String,
-    "stats": Nested(player_stats_model),
-})
+class PlayerStatsSchema(Schema):
+    id = fields.Int()
+    mode = fields.Int()
+    tscore = fields.Int()
+    rscore = fields.Int()
+    pp = fields.Int()
+    plays = fields.Int()
+    playtime = fields.Int()
+    acc = fields.Float()
+    max_combo = fields.Int()
+    total_hits = fields.Int()
+    replay_views = fields.Int()
+    xh_count = fields.Int()
+    x_count = fields.Int()
+    sh_count = fields.Int()
+    s_count = fields.Int()
+    a_count = fields.Int()
 
-leaderboard_model = api.model("Leaderboard", {
-    "id": Integer,
-    "name": String,
-    "pp": Integer,
-    "plays": Integer,
-    "tscore": Integer,
-    "rscore": Integer,
-})
 
-beatmap_model = api.model("Beatmap", {
-    "id": Integer,
-    "set_id": Integer,
-    "status": Integer,
-    "md5": String,
-    "artist": String,
-    "title": String,
-    "version": String,
-    "creator": String,
-    "filename": String,
-    "last_update": DateTime,
-    "total_length": Integer,
-    "max_combo": Integer,
-    "frozen": Integer,
-    "plays": Integer,
-    "passes": Integer,
-    "mode": Integer,
-    "bpm": Float,
-    "cs": Float,
-    "ar": Float,
-    "od": Float,
-    "hp": Float,
-    "diff": Float,
-})
+# TODO: move validation logic to these schemas
+class PlayerSchema(Schema):
+    id = fields.Int(dump_only=True)
+    name = fields.Str()
+    password = fields.Str(load_only=True)
+    safe_name = fields.Str(dump_only=True)
+    priv = fields.Int(dump_only=True)
+    country = fields.Str(dump_only=True)
+    creation_time = fields.Int(dump_only=True)
+    latest_activity = fields.Int(dump_only=True)
+    preferred_mode = fields.Int()
+    userpage_content = fields.Str()
+    stats = fields.List(
+        fields.Nested(PlayerStatsSchema),
+        dump_only=True
+    )
 
-score_model = api.model("Score", {
-    "id": Integer,
-    "map_md5": String,
-    "score": Integer,
-    "pp": Float,
-    "acc": Float,
-    "max_combo": Integer,
-    "mods": Integer,
-    "n300": Integer,
-    "n100": Integer,
-    "n50": Integer,
-    "nmiss": Integer,
-    "ngeki": Integer,
-    "nkatu": Integer,
-    "grade": String,
-    "status": Integer,
-    "mode": Integer,
-    "play_time": DateTime,
-    "time_elapsed": Integer,
-    "client_flags": Integer,
-    "userid": Integer,
-    "perfect": Integer,
-    "online_checksum": String,
-    "beatmap": Nested(beatmap_model)
-})
+
+# TODO: maybe borrow fields from PlayerSchema and/or GlobalStatsSchema
+class LeaderboardSchema(Schema):
+    id = fields.Int()
+    name = fields.Str()
+    pp = fields.Int()
+    plays = fields.Int()
+    tscore = fields.Int()
+    rscore = fields.Int()
+
+
+class BeatmapSchema(Schema):
+    id = fields.Int()
+    set_id = fields.Int()
+    status = fields.Int()
+    md5 = fields.Str()
+    artist = fields.Str()
+    title = fields.Str()
+    version = fields.Str()
+    creator = fields.Str()
+    filename = fields.Str()
+    last_update = fields.DateTime()
+    total_length = fields.Int()
+    max_combo = fields.Int()
+    frozen = fields.Int()
+    plays = fields.Int()
+    passes = fields.Int()
+    mode = fields.Int()
+    bpm = fields.Float()
+    cs = fields.Float()
+    ar = fields.Float()
+    od = fields.Float()
+    hp = fields.Float()
+    diff = fields.Float()
+
+
+class ScoreSchema(Schema):
+    id = fields.Int()
+    map_md5 = fields.Str()
+    score = fields.Int()
+    pp = fields.Float()
+    acc = fields.Float()
+    max_combo = fields.Int()
+    mods = fields.Int()
+    n300 = fields.Int()
+    n100 = fields.Int()
+    n50 = fields.Int()
+    nmiss = fields.Int()
+    ngeki = fields.Int()
+    nkatu = fields.Int()
+    grade = fields.Str()
+    status = fields.Int()
+    mode = fields.Int()
+    play_time = fields.DateTime()
+    time_elapsed = fields.Int()
+    client_flags = fields.Int()
+    userid = fields.Int()
+    perfect = fields.Int()
+    online_checksum = fields.Str()
+    beatmap = fields.Nested(BeatmapSchema)
+
+
+# schemas for deserialising options:
+class FileUploadSchema(Schema):
+    file = fields.Raw(
+        metadata={'type': 'string', 'format': 'binary'},
+        required=True,
+    )
+
+
+class LoginOptionsSchema(Schema):
+    name = fields.Str(required=True)
+    password = fields.Str(required=True)
+    cookie = fields.Bool(load_default=False)
+
+
+class PageOptionsSchema(Schema):
+    page = fields.Int(load_default=0)
+    limit = fields.Int(load_default=10)
+
+
+# TODO: `mode` should probably be its own type of field
+class PlayerStatsOptionsSchema(Schema):
+    mode = fields.Str(required=True)
+
+
+class ModeListOptionsSchema(PageOptionsSchema):
+    sort = fields.Str(load_default="pp")
+    mode = fields.Str(required=True)

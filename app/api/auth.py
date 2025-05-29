@@ -13,9 +13,9 @@ from flask_jwt_extended import (
     set_refresh_cookies,
     unset_jwt_cookies,
 )
-from flask_restx import reqparse, Resource
+from flask_restx import Resource
 
-from app import app, db, jwt, redis
+from app import app, db, jwt, models, redis
 from app.api import api
 
 REFRESH_TOKEN_CLAIM = "refresh"
@@ -79,17 +79,10 @@ class Identity(Resource):
 
 @namespace.route("/login")
 class Login(Resource):
-    def __init__(self, *args, **kwargs):
-        self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument("name", type=str, required=True)
-        self.reqparse.add_argument("password", type=str, required=True)
-        self.reqparse.add_argument("cookie", type=bool, default=False)
-        super().__init__(*args, **kwargs)
-
     def post(self):
-        args = self.reqparse.parse_args()
+        login_args = models.LoginOptionsSchema().load(request.get_json())
 
-        user_id = authenticate(args["name"], args["password"])
+        user_id = authenticate(login_args["name"], login_args["password"])
         if user_id is None:
             return {"message": "invalid username or password"}, 401
 
@@ -99,7 +92,7 @@ class Login(Resource):
         # then use `set_access_cookies` for CSRF protection with
         # double-submit verification. otherwise, just send the
         # access token in the response.
-        if args["cookie"]:
+        if login_args["cookie"]:
             response = jsonify(identity=user_id)
             set_access_cookies(response, access_token)
             set_refresh_cookies(response, refresh_token)

@@ -9,10 +9,11 @@ namespace = api.namespace(
     description="directly retreive score-related info",
 )
 
+score_schema = models.ScoreSchema()
+
 
 @namespace.route("/scores/<int:score_id>")
 class ScoresAPI(Resource):
-    @api.marshal_with(models.score_model)
     def get(self, score_id):
         db.ping()
         with db.cursor() as cursor:
@@ -31,4 +32,4 @@ class ScoresAPI(Resource):
             db.commit()
 
         score_data["beatmap"] = map_data
-        return score_data
+        return score_schema.dump(score_data)
