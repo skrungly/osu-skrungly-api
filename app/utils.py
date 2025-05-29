@@ -1,6 +1,21 @@
+import os
 import re
+from pathlib import Path
 
 from app import db
+
+DATA_DIR = Path("..") / os.environ.get("DATA_FOLDER", ".data")
+
+OSK_DIR = DATA_DIR / "osk"
+OSK_DIR.mkdir(exist_ok=True)
+
+SKINS_DIR = DATA_DIR / "skins"
+SKINS_DIR.mkdir(exist_ok=True)
+
+BANNERS_DIR = DATA_DIR / "banners"
+BANNERS_DIR.mkdir(exist_ok=True)
+
+MAX_SKIN_SIZE = int(os.environ.get("SKIN_MAX_SIZE") or 256 * 1024 * 1024)
 
 MODE_NAMES = {
     "osu": 0,

@@ -1,14 +1,22 @@
 import functools
 import hashlib
+import shutil
+from io import BytesIO
+from pathlib import Path
+from zipfile import ZipFile
 
 import bcrypt
-from flask import abort
+from flask import abort, send_file
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import reqparse, Resource
+from werkzeug.utils import secure_filename
 
 from app import db, models
-from app.api import api, PaginatedRequestParser
+from app.api import api, PaginatedRequestParser, upload_parser
 from app.utils import (
+    MAX_SKIN_SIZE,
+    OSK_DIR,
+    SKINS_DIR,
     resolve_mode_id,
     valid_password,
     valid_username,
@@ -21,7 +29,6 @@ namespace = api.namespace(
 
 
 def resolve_player_id(api_method):
-
     @functools.wraps(api_method)
     def _check_player_id(api, id_or_name):
         if id_or_name.isdigit():
@@ -260,3 +267,77 @@ class PlayerScoresAPI(Resource):
             scores.append(score)
 
         return scores
+
+
+@namespace.route("/<id_or_name>/skin")
+class PlayerSkinAPI(Resource):
+    @staticmethod
+    def _delete_skin_dirs(player_id):
+        for path in (OSK_DIR / str(player_id), SKINS_DIR / str(player_id)):
+            if path.exists():
+                shutil.rmtree(path)
+
+    @resolve_player_id
+    def get(self, player_id):
+        archive_dir = OSK_DIR / str(player_id)
+        if archive_dir.exists():
+            # there should only be one file here
+            for osk_file in archive_dir.iterdir():
+                return send_file(archive_dir / osk_file.name)
+
+        return {"message": "no skin found for that player."}, 404
+
+    @jwt_required()
+    @resolve_player_id
+    @namespace.expect(upload_parser)
+    def put(self, player_id):
+        if str(player_id) != get_jwt_identity():
+            abort(403)
+
+        args = upload_parser.parse_args()
+        osk_file = args["file"]
+
+        self._delete_skin_dirs(player_id)
+
+        skin_dir = SKINS_DIR / str(player_id)
+        archive_dir = OSK_DIR / str(player_id)
+
+        skin_dir.mkdir()
+        archive_dir.mkdir()
+
+        # we'll store the osk as-is in a user-identifiable folder
+        osk_path = archive_dir / secure_filename(args["file"].filename)
+        osk_file.save(osk_path)
+        osk_file.seek(0)
+
+        # set up a buffer for the zip file to read from
+        with BytesIO() as osk_buffer:
+            osk_file.save(osk_buffer)
+
+            with ZipFile(osk_buffer) as osk:
+                # extract the archive file-by-file
+                total_size = 0
+                for zipped_file in osk.infolist():
+                    if zipped_file.is_dir():
+                        continue
+
+                    total_size += zipped_file.file_size
+
+                    # do a quick check for decompression bombs
+                    if total_size > MAX_SKIN_SIZE:
+                        return {"message": "skin exceeds size limit."}, 413
+
+                    # force all skin elements to be at the root
+                    zipped_file.filename = Path(zipped_file.filename).name
+                    osk.extract(zipped_file, Path(skin_dir))
+
+        return "", 204
+
+    @jwt_required()
+    @resolve_player_id
+    def delete(self, player_id):
+        if str(player_id) != get_jwt_identity():
+            abort(403)
+
+        self._delete_skin_dirs(player_id)
+        return "", 204
