@@ -18,6 +18,12 @@ DEFAULT_SKIN_ID = "default"
 BANNERS_DIR = DATA_DIR / "banners"
 BANNERS_DIR.mkdir(exist_ok=True)
 
+ASSETS_DIR = DATA_DIR / "assets"
+
+FONT_DIR = ASSETS_DIR / "font"
+FONT_DIR.mkdir(exist_ok=True)
+FONT_URL = os.environ.get("FONT_URL")
+
 MAX_SKIN_SIZE = int(os.environ.get("SKIN_MAX_SIZE") or 256 * 1024 * 1024)
 
 MODE_NAMES = {
