@@ -55,7 +55,7 @@ def resolve_player_id(api_method):
 @namespace.route("")
 class PlayerListAPI(Resource):
     def get(self):
-        args = models.ModeListOptionsSchema().load(request.args)
+        args = models.PlayerListOptionsSchema().load(request.args)
 
         mode_id = resolve_mode_id(args["mode"])
         if mode_id is None:
@@ -183,27 +183,34 @@ class PlayerStatsAPI(Resource):
 class PlayerScoresAPI(Resource):
     @resolve_player_id
     def get(self, player_id):
-        args = models.ModeListOptionsSchema().load(request.args)
+        args = models.PlayerScoresOptionsSchema().load(request.args)
 
-        mode_id = resolve_mode_id(args["mode"])
-        if mode_id is None:
-            abort(422)
+        mode_query = ""
+        if mode_arg := args.get("mode"):
+            mode_id = resolve_mode_id(mode_arg)
+            if mode_id is None:
+                abort(422)
+
+            # don't worry, `resolve_mode_id` ensures a numeric result
+            mode_query = f"AND s.mode = {mode_id}"
 
         if args["sort"] == "pp":
-            query = """
+            query = f"""
                 SELECT m.*, s.* FROM scores s
                 INNER JOIN maps m ON m.md5 = s.map_md5
-                WHERE s.userid = %s AND s.mode = %s AND s.status = 2
+                WHERE s.userid = %s AND s.status = 2
                     AND (m.status = 2 OR m.status = 3)
+                    {mode_query}
                 ORDER BY s.pp DESC
                 LIMIT %s OFFSET %s
                 """
 
         elif args["sort"] == "recent":
-            query = """
+            query = f"""
                 SELECT m.*, s.* FROM scores s
                 INNER JOIN maps m ON m.md5 = s.map_md5
-                WHERE s.userid = %s AND s.mode = %s AND s.status != 0
+                WHERE s.userid = %s AND s.status != 0
+                    {mode_query}
                 ORDER BY s.play_time DESC
                 LIMIT %s OFFSET %s
                 """
@@ -213,7 +220,7 @@ class PlayerScoresAPI(Resource):
         db.ping()
         with db.cursor() as cursor:
             offset = args["limit"] * args["page"]
-            cursor.execute(query, (player_id, mode_id, args["limit"], offset))
+            cursor.execute(query, (player_id, args["limit"], offset))
             score_and_beatmap = cursor.fetchall()
             db.commit()
 

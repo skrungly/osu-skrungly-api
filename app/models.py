@@ -133,6 +133,11 @@ class PlayerStatsOptionsSchema(Schema):
     mode = fields.Str(required=True)
 
 
-class ModeListOptionsSchema(PageOptionsSchema):
+class PlayerListOptionsSchema(PageOptionsSchema):
     sort = fields.Str(load_default="pp")
     mode = fields.Str(required=True)
+
+
+class PlayerScoresOptionsSchema(PageOptionsSchema):
+    sort = fields.Str(load_default="pp")
+    mode = fields.Str()
