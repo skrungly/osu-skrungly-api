@@ -6,12 +6,12 @@ from app.api import api
 
 map_namespace = api.namespace(
     name="maps",
-    description="retreive basic map info",
+    description="retrieve basic map info",
 )
 
 set_namespace = api.namespace(
     name="mapsets",
-    description="retreive basic mapset info",
+    description="retrieve basic mapset info",
 )
 
 

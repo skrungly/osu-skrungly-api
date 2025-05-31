@@ -9,7 +9,7 @@ from app.api import api
 
 namespace = api.namespace(
     name="scores",
-    description="directly retreive score-related info",
+    description="directly retrieve score-related info",
 )
 
 score_schema = models.ScoreSchema()

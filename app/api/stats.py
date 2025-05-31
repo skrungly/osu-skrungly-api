@@ -5,7 +5,7 @@ from app.api import api
 
 namespace = api.namespace(
     name="stats",
-    description="retreive global server stats",
+    description="retrieve global server stats",
 )
 
 global_stats_schema = models.GlobalStatsSchema()
