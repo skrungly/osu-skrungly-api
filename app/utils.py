@@ -12,6 +12,9 @@ OSK_DIR.mkdir(exist_ok=True)
 SKINS_DIR = DATA_DIR / "skins"
 SKINS_DIR.mkdir(exist_ok=True)
 
+DEFAULT_SKIN_URL = os.environ.get("DEFAULT_SKIN_URL")
+DEFAULT_SKIN_ID = "default"
+
 BANNERS_DIR = DATA_DIR / "banners"
 BANNERS_DIR.mkdir(exist_ok=True)
 

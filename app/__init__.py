@@ -35,5 +35,5 @@ db = pymysql.connect(
     cursorclass=pymysql.cursors.DictCursor,
 )
 
-from app import logging, utils  # noqa: F401 E402
+from app import logging, skins, utils  # noqa: F401 E402
 from app.api import api  # noqa: F401 E402
