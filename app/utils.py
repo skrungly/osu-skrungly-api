@@ -5,6 +5,7 @@ from pathlib import Path
 from app import db
 
 DATA_DIR = Path("..") / os.environ.get("DATA_FOLDER", ".data")
+DATA_DIR.mkdir(exist_ok=True)
 
 OSK_DIR = DATA_DIR / "osk"
 OSK_DIR.mkdir(exist_ok=True)
@@ -19,6 +20,7 @@ BANNERS_DIR = DATA_DIR / "banners"
 BANNERS_DIR.mkdir(exist_ok=True)
 
 ASSETS_DIR = DATA_DIR / "assets"
+ASSETS_DIR.mkdir(exist_ok=True)
 
 FONT_DIR = ASSETS_DIR / "font"
 FONT_DIR.mkdir(exist_ok=True)
