@@ -2,7 +2,7 @@ import pytest
 
 # testing individual maps (/maps/...)
 
-APOPLEXY_ = {
+EXAMPLE_MAP = {
     "id": 811675,
     "set_id": 370340,
     "status": 2,
@@ -33,7 +33,7 @@ def test_get_ranked_bancho_beatmap(client):
 
     assert response.status_code == 200
 
-    for key, value in APOPLEXY_.items():
+    for key, value in EXAMPLE_MAP.items():
         assert response.json[key] == value
 
 
@@ -61,7 +61,7 @@ def test_get_ranked_bancho_mapset(client):
     assert len(response.json) == 5
 
     for map_data in response.json:
-        assert all(key in map_data for key in APOPLEXY_)
+        assert all(key in map_data for key in EXAMPLE_MAP)
 
 
 @pytest.mark.parametrize("set_id", ["", "/2", "/aaaaa"])
