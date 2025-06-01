@@ -6,12 +6,12 @@ def test_get_global_stats(client):
     assert response.status_code == 200
 
     expected_result = {
-        "tscore": 45178791,
-        "rscore": 28919771,
-        "pp": 939,
-        "plays": 13,
-        "playtime": 1593,
-        "total_hits": 8950,
+        "tscore": 117302691,
+        "rscore": 98658541,
+        "pp": 1060,
+        "plays": 17,
+        "playtime": 2117,
+        "total_hits": 11456,
     }
 
     for key, value in expected_result.items():
