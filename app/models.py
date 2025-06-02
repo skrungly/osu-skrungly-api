@@ -1,4 +1,24 @@
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, validates, ValidationError
+
+from app import db
+from app.utils import Mode, USERNAME_REGEX
+
+
+class ModeField(fields.Field[Mode]):
+    def _serialize(self, value, attr, obj, **kwargs):
+        return str(value)
+
+    def _deserialize(self, value, attr, obj, **kwargs):
+        try:
+            return Mode.from_name_or_id(value)
+
+        except ValueError as error:
+            modes = tuple(int(m) for m in Mode)
+            raise ValidationError(f"id must be one of {modes}") from error
+
+        except KeyError as error:
+            modes = tuple(m.name.replace("_", "!").lower() for m in Mode)
+            raise ValidationError(f"name must be one of {modes}") from error
 
 
 # schemas for serialising data:
@@ -32,20 +52,17 @@ class PlayerStatsSchema(Schema):
 
 # TODO: move validation logic to these schemas
 class PlayerSchema(Schema):
-    id = fields.Int(dump_only=True)
+    id = fields.Int()
     name = fields.Str()
-    password = fields.Str(load_only=True)
-    safe_name = fields.Str(dump_only=True)
-    priv = fields.Int(dump_only=True)
-    country = fields.Str(dump_only=True)
-    creation_time = fields.Int(dump_only=True)
-    latest_activity = fields.Int(dump_only=True)
+    password = fields.Str()
+    safe_name = fields.Str()
+    priv = fields.Int()
+    country = fields.Str()
+    creation_time = fields.Int()
+    latest_activity = fields.Int()
     preferred_mode = fields.Int()
     userpage_content = fields.Str()
-    stats = fields.List(
-        fields.Nested(PlayerStatsSchema),
-        dump_only=True
-    )
+    stats = fields.List(fields.Nested(PlayerStatsSchema))
 
 
 # TODO: maybe borrow fields from PlayerSchema and/or GlobalStatsSchema
@@ -109,7 +126,7 @@ class ScoreSchema(Schema):
     beatmap = fields.Nested(BeatmapSchema)
 
 
-# schemas for deserialising options:
+# schemas for deserialising and validating options:
 class FileUploadSchema(Schema):
     file = fields.Raw(
         metadata={'type': 'string', 'format': 'binary'},
@@ -123,21 +140,72 @@ class LoginOptionsSchema(Schema):
     cookie = fields.Bool(load_default=False)
 
 
+class PlayerEditOptionsSchema(Schema):
+    name = fields.Str()
+    password = fields.Str()
+    userpage_content = fields.Str()
+    preferred_mode = ModeField()
+
+    # name and password validation logic is copied from bancho.py
+    # TODO: maybe create an endpoint on bancho for validation checks?
+    @validates("name")
+    def validate_name(self, value: str, data_key: str) -> None:
+        errors = []
+
+        if not 2 <= len(value) <= 15:
+            errors.append("must be 2-15 characters in length")
+
+        if not USERNAME_REGEX.match(value):
+            errors.append("contains invalid characters")
+
+        if "_" in value and " " in value:
+            errors.append("may contain ' ' or '_' but not both")
+
+        db.ping()
+        with db.cursor() as cursor:
+            cursor.execute("SELECT name FROM users WHERE name = %s", (value,))
+            existing_entry = cursor.fetchone()
+
+        if existing_entry:
+            errors.append("already taken by another player")
+
+        if errors:
+            raise ValidationError(errors)
+
+    @validates("password")
+    def validate_password(self, value: str, data_key: str) -> None:
+        errors = []
+
+        if not 8 <= len(value) <= 32:
+            errors.append("must be 8-32 characters in length")
+
+        if len(set(value)) <= 3:
+            errors.append("must contain at least 3 unique characters")
+
+        if errors:
+            raise ValidationError(errors)
+
+    @validates("userpage_content")
+    def validates_userpage_content(self, value: str, data_key: str) -> None:
+        if len(value) > 2048:
+            raise ValidationError("must be no longer than 2048 characters")
+
+
 class PageOptionsSchema(Schema):
     page = fields.Int(load_default=0)
     limit = fields.Int(load_default=10)
 
 
-# TODO: `mode` should probably be its own type of field
 class PlayerStatsOptionsSchema(Schema):
-    mode = fields.Str(required=True)
+    mode = ModeField(required=True)
 
 
 class PlayerListOptionsSchema(PageOptionsSchema):
     sort = fields.Str(load_default="pp")
-    mode = fields.Str(required=True)
+    online = fields.Bool(load_default=False)
+    mode = ModeField(required=True)
 
 
 class PlayerScoresOptionsSchema(PageOptionsSchema):
     sort = fields.Str(load_default="pp")
-    mode = fields.Str()
+    mode = ModeField()

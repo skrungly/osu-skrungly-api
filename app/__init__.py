@@ -36,5 +36,6 @@ db = pymysql.connect(
     autocommit=True,
 )
 
+
 from app import logging, replay, skins, utils  # noqa: F401 E402
 from app.api import api  # noqa: F401 E402

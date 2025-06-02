@@ -9,12 +9,7 @@ from werkzeug.utils import secure_filename
 
 from app import db, models, skins
 from app.api import api
-from app.utils import (
-    OSK_DIR,
-    resolve_mode_id,
-    valid_password,
-    valid_username,
-)
+from app.utils import OSK_DIR
 
 namespace = api.namespace(
     name="players",
@@ -22,6 +17,7 @@ namespace = api.namespace(
 )
 
 player_schema = models.PlayerSchema()
+player_edit_schema = models.PlayerEditOptionsSchema()
 player_stats_schema = models.PlayerStatsSchema()
 
 beatmap_schema = models.BeatmapSchema()
@@ -55,10 +51,6 @@ def resolve_player_id(api_method):
 class PlayerListAPI(Resource):
     def get(self):
         args = models.PlayerListOptionsSchema().load(request.args)
-
-        mode_id = resolve_mode_id(args["mode"])
-        if mode_id is None:
-            abort(422)
 
         if args["sort"] not in ("pp", "plays", "tscore", "rscore"):
             abort(422)
@@ -111,36 +103,27 @@ class PlayerAPI(Resource):
             abort(403)
 
         # TODO: maybe move validation to the schema itself
-        args = player_schema.load(request.get_json())
-        set_fields = {}
+        args = player_edit_schema.load(request.get_json())
+        new_fields = {}
 
         # specifically check against None to allow for "" (empty)
         # so that we may return a more specific error response.
         if (new_name := args.get("name")) is not None:
-            if not valid_username(new_name):
-                abort(422)
-
-            set_fields["name"] = new_name
-            set_fields["safe_name"] = new_name.lower().replace(" ", "_")
+            new_fields["name"] = new_name
+            new_fields["safe_name"] = new_name.lower().replace(" ", "_")
 
         if (new_password := args.get("password")) is not None:
-            if not valid_password(new_password):
-                abort(422)
-
             pw_md5 = hashlib.md5(new_password.encode()).hexdigest().encode()
-            set_fields["pw_bcrypt"] = bcrypt.hashpw(pw_md5, bcrypt.gensalt())
+            new_fields["pw_bcrypt"] = bcrypt.hashpw(pw_md5, bcrypt.gensalt())
 
         if (new_userpage := args.get("userpage_content")) is not None:
-            if len(new_userpage) > 2048:
-                abort(422)
+            new_fields["userpage_content"] = new_userpage
 
-            set_fields["userpage_content"] = new_userpage
-
-        set_query = ", ".join(f"{key} = %({key})s" for key in set_fields)
+        set_query = ", ".join(f"{key} = %({key})s" for key in new_fields)
 
         db.ping()
         with db.cursor() as cursor:
-            query_args = set_fields | {"id": player_id}
+            query_args = new_fields | {"id": player_id}
             cursor.execute(
                 f"UPDATE users SET {set_query} WHERE id = %(id)s", query_args
             )
@@ -154,21 +137,17 @@ class PlayerStatsAPI(Resource):
     def get(self, player_id):
         args = models.PlayerStatsOptionsSchema().load(request.args)
 
-        mode_id = resolve_mode_id(args["mode"])
-        if mode_id is None:
-            abort(422)
-
         db.ping()
         with db.cursor() as cursor:
             cursor.execute("""
                 SELECT * FROM stats
-                WHERE mode = %s and id = %s and plays > 0
-                """, (mode_id, player_id),
+                WHERE mode = %s and id = %s
+                """, (args["mode"], player_id),
             )
 
             stats_data = cursor.fetchone()
 
-        return player_stats_schema.dump(stats_data) or abort(404)
+        return player_stats_schema.dump(stats_data)
 
 
 @namespace.route("/<id_or_name>/scores")
@@ -178,13 +157,9 @@ class PlayerScoresAPI(Resource):
         args = models.PlayerScoresOptionsSchema().load(request.args)
 
         mode_query = ""
-        if mode_arg := args.get("mode"):
-            mode_id = resolve_mode_id(mode_arg)
-            if mode_id is None:
-                abort(422)
-
-            # don't worry, `resolve_mode_id` ensures a numeric result
-            mode_query = f"AND s.mode = {mode_id}"
+        if (mode := args.get("mode")) is not None:
+            # don't worry, this is validated to be a Mode instance
+            mode_query = f"AND s.mode = {mode}"
 
         if args["sort"] == "pp":
             query = f"""

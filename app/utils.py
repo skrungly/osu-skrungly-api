@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 import os
 import re
+from enum import IntEnum
 from pathlib import Path
-
-from app import db
 
 DATA_DIR = Path("..") / os.environ.get("DATA_FOLDER", ".data")
 DATA_DIR.mkdir(exist_ok=True)
@@ -28,50 +29,28 @@ FONT_URL = os.environ.get("FONT_URL")
 
 MAX_SKIN_SIZE = int(os.environ.get("SKIN_MAX_SIZE") or 256 * 1024 * 1024)
 
-MODE_NAMES = {
-    "osu": 0,
-    "taiko": 1,
-    "catch": 2,
-    "mania": 3,
-    "relax": 4,
-}
-
-USERNAME_REGEX = re.compile(r"^[\w \[\]-]{2,15}$")
+USERNAME_REGEX = re.compile(r"^[\w \[\]-]+$")
 
 
-# name and password validation logic is copied from bancho.py
-# TODO: create an endpoint on bancho for checking these things,
-# so that this logic is not repeated across services!
-def valid_username(name):
-    if not USERNAME_REGEX.match(name):
-        return False
+class Mode(IntEnum):
+    OSU = 0
+    TAIKO = 1
+    CATCH = 2
+    MANIA = 3
 
-    if "_" in name and " " in name:
-        return False
+    OSU_RX = 4
+    TAIKO_RX = 5
+    CATCH_RX = 6
+    # MANIA_RX = 7  # not used
 
-    db.ping()
-    with db.cursor() as cursor:
-        cursor.execute("SELECT name FROM users WHERE name = %s", (name,))
-        existing_entry = cursor.fetchone()
+    OSU_AP = 8
+    # TAIKO_AP = 9  # not used
+    # CATCH_AP = 10  # not used
+    # MANIA_AP = 11  # not used
 
-    if existing_entry:
-        return False
+    @classmethod
+    def from_name_or_id(cls, name_or_id: str) -> Mode:
+        if name_or_id.isdigit():
+            return Mode(int(name_or_id))
 
-    return True
-
-
-def valid_password(password):
-    if not 8 <= len(password) <= 32:
-        return False
-
-    if len(set(password)) <= 3:
-        return False
-
-    return True
-
-
-def resolve_mode_id(id_or_name: str):
-    if id_or_name.isdigit():
-        return id_or_name
-
-    return MODE_NAMES.get(id_or_name)
+        return Mode[name_or_id.upper().replace("!", "_")]

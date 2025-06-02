@@ -1,5 +1,6 @@
 from flask import render_template
 from flask_restx import Api, apidoc
+from marshmallow import ValidationError
 
 from app import app
 
@@ -10,6 +11,12 @@ def swagger_static(filename):
 
 
 api = Api(app, version="0.1", title="osu!skrungly API")
+
+
+@api.errorhandler(ValidationError)
+def on_validation_error(err):
+    err.data = err.messages
+    return {"message": err.data}, 422
 
 
 @api.documentation
