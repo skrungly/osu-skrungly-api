@@ -53,7 +53,6 @@ def valid_username(name):
     with db.cursor() as cursor:
         cursor.execute("SELECT name FROM users WHERE name = %s", (name,))
         existing_entry = cursor.fetchone()
-        db.commit()
 
     if existing_entry:
         return False

@@ -42,7 +42,6 @@ def resolve_player_id(api_method):
             )
 
             player_id = cursor.fetchone()
-            db.commit()
 
         if player_id is not None:
             return api_method(api, player_id["id"])
@@ -78,8 +77,6 @@ class PlayerListAPI(Resource):
             )
 
             leaderboard_data = cursor.fetchall()
-            db.commit()
-
         return leaderboard_schema.dump(leaderboard_data, many=True)
 
 
@@ -98,12 +95,10 @@ class PlayerAPI(Resource):
 
             player_data = cursor.fetchone()
             if not player_data:
-                db.commit()
                 abort(404)
 
             cursor.execute("SELECT * FROM stats WHERE id = %s", (player_id,))
             stats_data = cursor.fetchall()
-            db.commit()
 
         player_data["stats"] = stats_data
         return player_schema.dump(player_data)
@@ -150,8 +145,6 @@ class PlayerAPI(Resource):
                 f"UPDATE users SET {set_query} WHERE id = %(id)s", query_args
             )
 
-            db.commit()
-
         return "", 204
 
 
@@ -174,7 +167,6 @@ class PlayerStatsAPI(Resource):
             )
 
             stats_data = cursor.fetchone()
-            db.commit()
 
         return player_stats_schema.dump(stats_data) or abort(404)
 
@@ -222,7 +214,6 @@ class PlayerScoresAPI(Resource):
             offset = args["limit"] * args["page"]
             cursor.execute(query, (player_id, args["limit"], offset))
             score_and_beatmap = cursor.fetchall()
-            db.commit()
 
         # the resulting data is a mix of map and score properties,
         # which need to be separated to fit the score model

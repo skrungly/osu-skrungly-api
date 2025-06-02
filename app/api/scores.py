@@ -24,7 +24,6 @@ def resolve_score_and_map(api_method):
             score_data = cursor.fetchone()
 
             if not score_data:
-                db.commit()
                 return {"message": "score not found"}, 404
 
             cursor.execute(
@@ -32,7 +31,6 @@ def resolve_score_and_map(api_method):
             )
 
             map_data = cursor.fetchone()
-            db.commit()
 
         return api_method(api, score_data, map_data)
 
@@ -68,7 +66,6 @@ class ScoresScreenAPI(Resource):
         with db.cursor() as cursor:
             cursor.execute("SELECT name FROM users WHERE id = %s", (user_id,))
             player_info = cursor.fetchone()
-            db.commit()
 
         if not player_info:
             return {"message": "player not found for that score"}, 404

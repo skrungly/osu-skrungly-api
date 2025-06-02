@@ -37,7 +37,6 @@ def authenticate(name=None, password=None):
         )
 
         user_info = cursor.fetchone()
-        db.commit()
 
     if not user_info:
         return None

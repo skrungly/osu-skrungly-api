@@ -21,6 +21,5 @@ class GlobalStatsAPI(Resource):
             for stat_name in global_stats_schema.fields:
                 cursor.execute(f"SELECT SUM({stat_name}) FROM stats")
                 stats[stat_name] = cursor.fetchone()[f"SUM({stat_name})"]
-                db.commit()
 
         return global_stats_schema.dump(stats)

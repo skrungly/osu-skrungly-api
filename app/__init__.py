@@ -33,6 +33,7 @@ db = pymysql.connect(
     password=os.environ["MYSQL_PASSWORD"],
     db=os.environ["MYSQL_DATABASE"],
     cursorclass=pymysql.cursors.DictCursor,
+    autocommit=True,
 )
 
 from app import logging, replay, skins, utils  # noqa: F401 E402

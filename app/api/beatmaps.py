@@ -25,7 +25,6 @@ class BeatmapSetAPI(Resource):
         with db.cursor() as cursor:
             cursor.execute("SELECT * FROM maps WHERE set_id = %s", (set_id,))
             mapset_data = cursor.fetchall()
-            db.commit()
 
         return beatmap_schema.dump(mapset_data, many=True) or abort(404)
 
@@ -37,6 +36,5 @@ class BeatmapAPI(Resource):
         with db.cursor() as cursor:
             cursor.execute("SELECT * FROM maps WHERE id = %s", (map_id,))
             map_data = cursor.fetchone()
-            db.commit()
 
         return beatmap_schema.dump(map_data) or abort(404)
