@@ -1,39 +1,16 @@
 import pytest
 
+
 # testing individual maps (/maps/...)
 
-EXAMPLE_MAP = {
-    "id": 811675,
-    "set_id": 370340,
-    "status": 2,
-    "md5": "f8483b44ffbbc86603f486aad3ceaa0d",
-    "artist": "CENOB1TE",
-    "title": "Onslaught",
-    "version": "apoplexy_",
-    "creator": "Irreversible",
-    "filename": "CENOB1TE - Onslaught (Irreversible) [apoplexy_].osu",
-    "last_update": "2015-10-26T19:35:41",
-    "total_length": 199,
-    "max_combo": 1002,
-    "frozen": 0,
-    "plays": 5,
-    "passes": 2,
-    "mode": 0,
-    "bpm": 140.0,
-    "cs": 4.0,
-    "ar": 9.3,
-    "od": 8.5,
-    "hp": 7.0,
-    "diff": 5.989,
-}
+def test_get_ranked_bancho_beatmap(client, expected_data):
+    expected_map = expected_data("beatmap")
 
-
-def test_get_ranked_bancho_beatmap(client):
     response = client.get("/maps/811675")
 
     assert response.status_code == 200
 
-    for key, value in EXAMPLE_MAP.items():
+    for key, value in expected_map.items():
         assert response.json[key] == value
 
 
@@ -52,16 +29,16 @@ def test_bad_methods_beatmaps(client):
 
 # testing mapsets (/mapsets/...)
 
-def test_get_ranked_bancho_mapset(client):
+def test_get_ranked_bancho_mapset(client, expected_data):
+    expected_map = expected_data("beatmap")
+
     response = client.get("/mapsets/370340")
 
     assert response.status_code == 200
-
-    # mapset has 5 difficulties
-    assert len(response.json) == 5
+    assert len(response.json) == 5  # mapset has 5 difficulties
 
     for map_data in response.json:
-        assert all(key in map_data for key in EXAMPLE_MAP)
+        assert all(key in map_data for key in expected_map)
 
 
 @pytest.mark.parametrize("set_id", ["", "/2", "/aaaaa"])

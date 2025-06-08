@@ -1,3 +1,7 @@
+import functools
+import json
+from pathlib import Path
+
 import pytest
 
 from app import app
@@ -13,21 +17,14 @@ def client(flask_app):
     return flask_app.test_client()
 
 
-@pytest.fixture()
-def get(client):
-    return client.get
+@pytest.fixture(scope="session")
+def expected_data():
+    expected_data_path = Path("tests") / "data" / "expected"
 
+    @functools.cache
+    def _expected_data(data_label):
+        json_path = (expected_data_path / data_label).with_suffix(".json")
+        with open(json_path) as json_file:
+            return json.load(json_file)
 
-@pytest.fixture()
-def post(client):
-    return client.post
-
-
-@pytest.fixture()
-def put(client):
-    return client.put
-
-
-@pytest.fixture()
-def delete(client):
-    return client.delete
+    return _expected_data

@@ -1,19 +1,13 @@
-EXAMPLE_STATS = {
-    "tscore": 117302691,
-    "rscore": 98658541,
-    "pp": 1060,
-    "plays": 17,
-    "playtime": 2117,
-    "total_hits": 11456,
-}
 
 
-def test_get_global_stats(client):
+def test_get_global_stats(client, expected_data):
+    expected_stats = expected_data("global_stats")
+
     response = client.get("/stats")
 
     assert response.status_code == 200
 
-    for key, value in EXAMPLE_STATS.items():
+    for key, value in expected_stats.items():
         assert response.json[key] == value
 
 

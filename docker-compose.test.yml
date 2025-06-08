@@ -22,7 +22,7 @@ services:
     environment:
       MYSQL_RANDOM_ROOT_PASSWORD: "true"
     volumes:
-      - ./tests/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./tests/data/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: "/usr/bin/mysql --user=$$MYSQL_USER --password=$$MYSQL_PASSWORD --execute \"SHOW DATABASES;\""
       interval: 2s
