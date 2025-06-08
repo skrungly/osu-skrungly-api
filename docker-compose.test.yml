@@ -2,6 +2,7 @@ name: test-osu-api
 
 services:
   flask:
+    env_file: ".env.testing"
     build: .
     command: "pytest tests"
     depends_on:
@@ -11,20 +12,14 @@ services:
         condition: service_started
 
   redis:
+    env_file: ".env.testing"
     image: bitnami/redis:latest
     user: root
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      REDIS_PORT_NUMBER: ${REDIS_PORT}
 
   mysql:
+    env_file: ".env.testing"
     image: mysql:latest
     environment:
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_HOST: ${MYSQL_HOST}
-      MYSQL_TCP_PORT: ${MYSQL_PORT}
       MYSQL_RANDOM_ROOT_PASSWORD: "true"
     volumes:
       - ./tests/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
