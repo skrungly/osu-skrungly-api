@@ -3,8 +3,9 @@ import pytest
 
 def test_get_valid_score(client, expected_data):
     expected_score = expected_data("score")
+    score_id = expected_score["id"]
 
-    response = client.get("/scores/15")
+    response = client.get(f"/scores/{score_id}")
 
     assert response.status_code == 200
 
@@ -12,9 +13,9 @@ def test_get_valid_score(client, expected_data):
         assert response.json[key] == value
 
 
-@pytest.mark.parametrize("score_id", ["", "aaaaa", "/99999999"])
+@pytest.mark.parametrize("score_id", ["aaaaa", "99999999"])
 def test_get_inexistent_score(client, score_id):
-    response = client.get(f"/scores{score_id}")
+    response = client.get(f"/scores/{score_id}")
 
     assert response.status_code == 404
 
