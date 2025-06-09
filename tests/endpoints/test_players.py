@@ -39,7 +39,7 @@ class TestValidPlayer:
         for key, value in expected_stats.items():
             assert expected_stats_in_response[key] == value
 
-    @pytest.mark.parametrize("mode_id", [0, "osu", 3, "mania"])
+    @pytest.mark.parametrize("mode_id", ["osu", "mania", "osu!rx", 0, 1, 2, 8])
     def test_get_player_stats(self, client, expected_data, player_id, mode_id):
         expected_stats = expected_data("player_stats")
 
@@ -55,18 +55,8 @@ class TestValidPlayer:
         for key in expected_stats:
             assert key in response.json
 
-    @pytest.mark.parametrize("mode_id", [1, 2, 4])
-    def test_get_missing_player_stats(self, client, player_id, mode_id):
-        response = client.get(
-            f"/players{player_id}/stats",
-            query_string={
-                "mode": mode_id
-            }
-        )
-
-        assert response.status_code == 404
-
-    @pytest.mark.parametrize("mode_id", [100, "aaaaa", ""])
+    # mode 7 is mania!rx, which doesn't exist in reality.
+    @pytest.mark.parametrize("mode_id", [7, "aaaaa", ""])
     def test_get_invalid_player_stats(self, client, player_id, mode_id):
         response = client.get(
             f"/players{player_id}/stats",

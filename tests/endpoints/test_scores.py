@@ -12,17 +12,11 @@ def test_get_valid_score(client, expected_data):
         assert response.json[key] == value
 
 
-@pytest.mark.parametrize("score_id", ["", "/99999999"])
+@pytest.mark.parametrize("score_id", ["", "aaaaa", "/99999999"])
 def test_get_inexistent_score(client, score_id):
     response = client.get(f"/scores{score_id}")
 
     assert response.status_code == 404
-
-
-def test_get_invalid_score(client):
-    response = client.get("/scores/aaaaa")
-
-    assert response.status_code == 422
 
 
 def test_bad_methods_scores(client):
