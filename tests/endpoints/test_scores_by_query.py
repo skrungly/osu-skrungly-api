@@ -13,6 +13,7 @@ SORT_OPTIONS = {
 BASIC_FILTER_OPTIONS = {
     "mods": {"score": "mods"},
     "grade": {"score": "grade"},
+    "mode": {"score": "mode"},
 
     # beatmaps and players may each be filtered in two different ways
     "beatmap": {
@@ -53,9 +54,9 @@ def test_get_scores_sorted(client, sort_by):
 
         previous_value = score[db_column]
 
-        # sorting by pp should only return ranked/approved scores
+        # sorting by pp should only return ranked/approved maps
         if sort_by == "pp":
-            assert response.json["beatmap"]["status"] in (2, 3)
+            assert score["beatmap"]["status"] in (2, 3)
 
 
 @pytest.mark.parametrize("filter_by", BASIC_FILTER_OPTIONS)

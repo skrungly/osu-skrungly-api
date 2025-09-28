@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields, validates, ValidationError
+from marshmallow import Schema, fields, validate, validates, ValidationError
 
 from app import db
 from app.utils import Mode, USERNAME_REGEX
@@ -123,7 +123,10 @@ class ScoreSchema(Schema):
     userid = fields.Int()
     perfect = fields.Int()
     online_checksum = fields.Str()
+
+    # nested data
     beatmap = fields.Nested(BeatmapSchema)
+    player = fields.Nested(PlayerSchema)
 
 
 # schemas for deserialising and validating options:
@@ -209,3 +212,48 @@ class PlayerListOptionsSchema(PageOptionsSchema):
 class PlayerScoresOptionsSchema(PageOptionsSchema):
     sort = fields.Str(load_default="pp")
     mode = ModeField()
+
+
+class ScoresOptionsSchema(PageOptionsSchema):
+    _SORT_OPTIONS = {
+        "recent": "id",
+        "score": "score",
+        "pp": "pp",
+        "combo": "max_combo",
+        "length": "time_elapsed",
+    }
+
+    _STATUS_ALIASES = {
+        "0": {0},  # bit lazy but it's easier to work with
+        "1": {1},
+        "2": {2},
+        "failed": {0},
+        "passed": {1, 2},
+        "best": {2},
+        "all": {0, 1, 2},
+    }
+
+    sort = fields.Str(
+        validate=validate.OneOf(_SORT_OPTIONS),
+        load_default="recent"
+    )
+    mods = fields.Int()
+    grade = fields.Str()
+    mode = ModeField()
+    status = fields.Str(
+        validate=validate.OneOf(_STATUS_ALIASES),
+        load_default="passed"
+    )
+    beatmap = fields.Str()
+    player = fields.Str()
+
+    @validates("beatmap")
+    def validates_beatmap(self, value: str, data_key: str) -> None:
+        if value.isdigit():
+            return
+
+        # length and hexadecimal check for md5 sums
+        if len(value) == 32 and not set(value) - set("abcdef0123456789"):
+            return
+
+        raise ValidationError("invalid beatmap id or md5")

@@ -20,5 +20,40 @@
     "client_flags": 0,
     "userid": 3,
     "perfect": 0,
-    "online_checksum": "e324f0e7b1e1d9bde2bf3442b87ccfd7"
+    "online_checksum": "e324f0e7b1e1d9bde2bf3442b87ccfd7",
+    "beatmap": {
+        "id": 811675,
+        "set_id": 370340,
+        "status": 2,
+        "md5": "f8483b44ffbbc86603f486aad3ceaa0d",
+        "artist": "CENOB1TE",
+        "title": "Onslaught",
+        "version": "apoplexy_",
+        "creator": "Irreversible",
+        "filename": "CENOB1TE - Onslaught (Irreversible) [apoplexy_].osu",
+        "last_update": "2015-10-26T19:35:41",
+        "total_length": 199,
+        "max_combo": 1002,
+        "frozen": 0,
+        "plays": 5,
+        "passes": 2,
+        "mode": 0,
+        "bpm": 140.0,
+        "cs": 4.0,
+        "ar": 9.3,
+        "od": 8.5,
+        "hp": 7.0,
+        "diff": 5.989
+    },
+        "player": {
+        "id": 3,
+        "name": "shinx",
+        "safe_name": "shinx",
+        "priv": 31879,
+        "country": "gb",
+        "creation_time": 1748697194,
+        "latest_activity": 1748811533,
+        "preferred_mode": 0,
+        "userpage_content": "hello!"
+    }
 }
