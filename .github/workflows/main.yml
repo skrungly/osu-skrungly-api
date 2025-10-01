@@ -1,0 +1,99 @@
+name: tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: set up python
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.13"
+        cache: "pip"
+
+    - name: install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8
+        pip install -r requirements.txt
+
+    - name: lint with flake8
+      run: flake8 .
+
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DATABASE: bancho
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: 3306
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: test4321
+
+    services:
+      mysql:
+        image: mysql:9.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: bancho
+        ports:
+        - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: set up python
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.13"
+        cache: "pip"
+
+    - name: install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: install mysql client
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mysql-client
+
+    - name: prepare database for testing
+      run: cat tests/data/init.sql | mysql -u$MYSQL_USER -p$MYSQL_PASSWORD -h$MYSQL_HOST $MYSQL_DATABASE
+
+    - name: lint with flake8
+      run: flake8 .
+
+    - name: run tests
+      env:
+        SECRET_KEY: test
+      run: pytest tests
