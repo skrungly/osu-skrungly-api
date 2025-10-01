@@ -14,6 +14,7 @@ app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
 app.config["JWT_ERROR_MESSAGE_KEY"] = "message"
 app.config["JWT_SESSION_COOKIE"] = False
 app.config["JWT_COOKIE_SECURE"] = True
+app.config['PROPAGATE_EXCEPTIONS'] = True
 
 jwt = JWTManager(app)
 
