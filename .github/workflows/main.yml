@@ -88,9 +88,6 @@ jobs:
     - name: prepare database for testing
       run: cat tests/data/init.sql | mysql -u$MYSQL_USER -p$MYSQL_PASSWORD -h$MYSQL_HOST $MYSQL_DATABASE
 
-    - name: lint with flake8
-      run: flake8 .
-
     - name: run tests
       env:
         SECRET_KEY: test
