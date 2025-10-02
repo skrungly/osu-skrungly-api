@@ -17,6 +17,34 @@ def client(flask_app):
     return flask_app.test_client()
 
 
+@pytest.fixture()
+def auth_tokens(client):
+    response = client.post(
+        "/auth/login",
+        json={
+            "name": "shinx",
+            "password": "test1234",
+            "cookie": False
+        }
+    )
+
+    return response.json
+
+
+@pytest.fixture()
+def authorized_client(client):
+    client.post(
+        "/auth/login",
+        json={
+            "name": "shinx",
+            "password": "test1234",
+            "cookie": True
+        }
+    )
+
+    return client
+
+
 @pytest.fixture(scope="session")
 def expected_data():
     expected_data_path = Path("tests") / "data" / "expected"
