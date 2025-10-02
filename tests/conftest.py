@@ -1,8 +1,11 @@
+import io
 import functools
 import json
+import os
 from pathlib import Path
 
 import pytest
+import requests
 
 from app import app
 
@@ -45,6 +48,12 @@ def authorized_client(client):
     return client
 
 
+@pytest.fixture()
+def csrf_headers(authorized_client):
+    csrf_cookie = authorized_client.get_cookie("csrf_access_token")
+    return {"X-CSRF-TOKEN": csrf_cookie.value}
+
+
 @pytest.fixture(scope="session")
 def expected_data():
     expected_data_path = Path("tests") / "data" / "expected"
@@ -56,3 +65,12 @@ def expected_data():
             return json.load(json_file)
 
     return _expected_data
+
+
+@pytest.fixture(scope="session")
+def example_skin():
+    skin_path = Path("tests") / "data" / "tests.osk"
+
+    # the skin should only be a few kB in size so let's just read it
+    with open(skin_path, "rb") as skin_file:
+        return skin_file.read()
