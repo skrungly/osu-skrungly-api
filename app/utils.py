@@ -5,7 +5,8 @@ import re
 from enum import IntEnum
 from pathlib import Path
 
-DATA_DIR = Path("..") / os.environ.get("DATA_FOLDER", ".data")
+# have to ensure we get a Path object from this
+DATA_DIR = Path(os.environ.get("DATA_FOLDER", Path("..") / ".data"))
 DATA_DIR.mkdir(exist_ok=True)
 
 OSK_DIR = DATA_DIR / "osk"
