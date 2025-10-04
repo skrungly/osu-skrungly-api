@@ -17,6 +17,40 @@ def client(flask_app):
     return flask_app.test_client()
 
 
+@pytest.fixture()
+def auth_tokens(client):
+    response = client.post(
+        "/auth/login",
+        json={
+            "name": "shinx",
+            "password": "test1234",
+            "cookie": False
+        }
+    )
+
+    return response.json
+
+
+@pytest.fixture()
+def authorized_client(client):
+    client.post(
+        "/auth/login",
+        json={
+            "name": "shinx",
+            "password": "test1234",
+            "cookie": True
+        }
+    )
+
+    return client
+
+
+@pytest.fixture()
+def csrf_headers(authorized_client):
+    csrf_cookie = authorized_client.get_cookie("csrf_access_token")
+    return {"X-CSRF-TOKEN": csrf_cookie.value}
+
+
 @pytest.fixture(scope="session")
 def expected_data():
     expected_data_path = Path("tests") / "data" / "expected"
@@ -28,3 +62,12 @@ def expected_data():
             return json.load(json_file)
 
     return _expected_data
+
+
+@pytest.fixture(scope="session")
+def example_skin():
+    skin_path = Path("tests") / "data" / "tests.osk"
+
+    # the skin should only be a few kB in size so let's just read it
+    with open(skin_path, "rb") as skin_file:
+        return skin_file.read()

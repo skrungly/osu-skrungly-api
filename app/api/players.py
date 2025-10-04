@@ -185,5 +185,5 @@ class PlayerSkinAPI(Resource):
         if str(player_id) != get_jwt_identity():
             abort(403)
 
-        skins.delete_skin(player_id)
+        skins.delete_skin(str(player_id))
         return "", 204
