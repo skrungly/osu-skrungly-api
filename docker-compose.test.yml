@@ -13,7 +13,7 @@ services:
 
   redis:
     env_file: ".env.testing"
-    image: bitnami/redis:latest
+    image: redis:latest
     user: root
 
   mysql:
