@@ -15,10 +15,10 @@ services:
         condition: service_started
 
   redis:
-    image: bitnami/redis:latest
+    image: redis:latest
     user: root
     volumes:
-      - redis-data:/bitnami/redis/data
+      - redis-data:/data
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       REDIS_PORT_NUMBER: ${REDIS_PORT}
