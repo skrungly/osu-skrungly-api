@@ -7,9 +7,8 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Resource
 from werkzeug.utils import secure_filename
 
-from app import db, models, skins
+from app import app, db, models, skins
 from app.api import api
-from app.utils import OSK_DIR
 
 namespace = api.namespace(
     name="players",
@@ -154,7 +153,7 @@ class PlayerStatsAPI(Resource):
 class PlayerSkinAPI(Resource):
     @resolve_player_id
     def get(self, player_id):
-        archive_dir = OSK_DIR / str(player_id)
+        archive_dir = app.osk_dir / str(player_id)
         if archive_dir.exists():
             # there should only be one file here
             for osk_file in archive_dir.iterdir():

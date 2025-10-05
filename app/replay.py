@@ -13,7 +13,8 @@ from pathlib import Path
 import requests
 from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 
-from app.utils import DEFAULT_SKIN_ID, FONT_DIR, FONT_URL, SKINS_DIR
+from app import app
+from app.utils import DEFAULT_SKIN_ID, FONT_URL
 
 REPLAY_WIDTH = 1920
 REPLAY_HEIGHT = 1080
@@ -21,11 +22,9 @@ REPLAY_ASPECT = REPLAY_WIDTH / REPLAY_HEIGHT
 REPLAY_RESOLUTION = (REPLAY_WIDTH, REPLAY_HEIGHT)
 
 BG_IMAGE_URLS = [  # TODO: might be time to make a custom mirror?
-    "https://beatconnect.io/bg/{set_id}/{id}",
+    # "https://beatconnect.io/bg/{set_id}/{id}",
     "https://b.ppy.sh/thumb/{set_id}l.jpg",
 ]
-
-DEFAULT_SKIN_DIR = SKINS_DIR / DEFAULT_SKIN_ID
 
 # the top 1/8th of the screen is a dark header for map info
 HEADER_HEIGHT = REPLAY_HEIGHT // 8 - 1
@@ -173,7 +172,7 @@ def _scale_image(img, scale):
 
 
 def _skin_element(name, skin):
-    for skin_path in (SKINS_DIR / skin, DEFAULT_SKIN_DIR):
+    for skin_path in (app.skins_dir / skin, app.skins_dir / DEFAULT_SKIN_ID):
         try:
             return Image.open(skin_path / f"{name}@2x.png").convert("RGBA")
         except (FileNotFoundError, UnidentifiedImageError):
@@ -217,14 +216,14 @@ def _fetch_bg_image(beatmap):
 
 
 def get_font_path(*, download=False):
-    for font_path in FONT_DIR.iterdir():
+    for font_path in (app.font_dir).iterdir():
         return font_path
 
     if not download or not FONT_URL:
         return None
 
     response = requests.get(FONT_URL)
-    font_path = FONT_DIR / Path(FONT_URL).name
+    font_path = app.font_dir / Path(FONT_URL).name
     with open(font_path, "wb") as font:
         font.write(response.content)
 

@@ -3,32 +3,12 @@ from __future__ import annotations
 import os
 import re
 from enum import IntEnum
-from pathlib import Path
-
-# have to ensure we get a Path object from this
-DATA_DIR = Path(os.environ.get("DATA_FOLDER", Path("..") / ".data"))
-DATA_DIR.mkdir(exist_ok=True)
-
-OSK_DIR = DATA_DIR / "osk"
-OSK_DIR.mkdir(exist_ok=True)
-
-SKINS_DIR = DATA_DIR / "skins"
-SKINS_DIR.mkdir(exist_ok=True)
 
 DEFAULT_SKIN_URL = os.environ.get("DEFAULT_SKIN_URL")
 DEFAULT_SKIN_ID = "default"
-
-BANNERS_DIR = DATA_DIR / "banners"
-BANNERS_DIR.mkdir(exist_ok=True)
-
-ASSETS_DIR = DATA_DIR / "assets"
-ASSETS_DIR.mkdir(exist_ok=True)
-
-FONT_DIR = ASSETS_DIR / "font"
-FONT_DIR.mkdir(exist_ok=True)
-FONT_URL = os.environ.get("FONT_URL")
-
 MAX_SKIN_SIZE = int(os.environ.get("SKIN_MAX_SIZE") or 256 * 1024 * 1024)
+
+FONT_URL = os.environ.get("FONT_URL")
 
 USERNAME_REGEX = re.compile(r"^[\w \[\]-]+$")
 
