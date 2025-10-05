@@ -8,7 +8,8 @@ from app import app
 
 
 @pytest.fixture()
-def flask_app():
+def flask_app(tmp_path):
+    app._data_dir = tmp_path
     yield app
 
 

@@ -7,6 +7,11 @@ EXAMPLE_SKIN_NAME = "tests.osk"
 
 @pytest.mark.parametrize("player", ("3", "shinx"))
 class TestValidPlayer:
+
+    def test_skin_missing_by_default(self, client, player):
+        missing_response = client.get(f"/players/{player}/skin")
+        assert missing_response.status_code == 404
+
     def test_upload_and_delete_skin(
         self,
         client,
@@ -15,12 +20,6 @@ class TestValidPlayer:
         example_skin,
         player
     ):
-        # TODO: figure out a good way of implementing temp dirs for
-        # each test. for now, let's just do a full implementation test
-        missing_response = client.get(f"/players/{player}/skin")
-
-        assert missing_response.status_code == 404
-
         # try to upload the basic skin with valid authentication
         form_data = {"file": (BytesIO(example_skin), EXAMPLE_SKIN_NAME)}
 
@@ -34,13 +33,14 @@ class TestValidPlayer:
 
         assert put_response.status_code == 204
 
-        # now try to fetch and delete the skin without authorization
+        # now fetch the skin from an arbitrary client
         get_response = client.get(f"/players/{player}/skin")
 
         assert get_response.status_code == 200
         assert get_response.data == example_skin
         assert EXAMPLE_SKIN_NAME in get_response.headers["Content-Disposition"]
 
+        # try to delete the skin from an unauthorized client
         unauth_delete_response = client.delete(f"/players/{player}/skin")
 
         assert unauth_delete_response.status_code == 401
@@ -58,7 +58,6 @@ class TestValidPlayer:
         assert deleted_get_response.status_code == 404
 
     def test_upload_skin_without_auth(self, client, example_skin, player):
-        # TODO: maybe this form data can be its own fixture?
         form_data = {"file": (BytesIO(example_skin), EXAMPLE_SKIN_NAME)}
 
         put_response = client.put(
