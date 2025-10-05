@@ -66,9 +66,13 @@ def expected_data():
 
 
 @pytest.fixture(scope="session")
-def example_skin():
-    skin_path = Path("tests") / "data" / "tests.osk"
+def read_example_file():
+    data_path = Path("tests") / "data"
 
-    # the skin should only be a few kB in size so let's just read it
-    with open(skin_path, "rb") as skin_file:
-        return skin_file.read()
+    @functools.cache
+    def _example_file(file_path):
+        # the skin should only be a few kB in size so let's just read it
+        with open(data_path / file_path, "rb") as example_file:
+            return example_file.read()
+
+    return _example_file
