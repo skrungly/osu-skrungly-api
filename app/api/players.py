@@ -6,6 +6,7 @@ from flask import abort, request, send_file
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Resource
 from werkzeug.utils import secure_filename
+from PIL import Image, ImageOps
 
 from app import app, db, models, skins
 from app.api import api
@@ -118,6 +119,9 @@ class PlayerAPI(Resource):
         if (new_userpage := args.get("userpage_content")) is not None:
             new_fields["userpage_content"] = new_userpage
 
+        if not new_fields:
+            return "", 204
+
         set_query = ", ".join(f"{key} = %({key})s" for key in new_fields)
 
         db.ping()
@@ -186,3 +190,48 @@ class PlayerSkinAPI(Resource):
 
         skins.delete_skin(str(player_id))
         return "", 204
+
+
+@namespace.route("/<id_or_name>/banner")
+class PlayerBannerAPI(Resource):
+    BANNER_SIZE = (1360, 230)
+
+    @resolve_player_id
+    def get(self, player_id):
+        banner_path = app.banners_dir / f"{player_id}.jpg"
+
+        if not banner_path.exists():
+            return {"message": "no banner found for that player."}, 404
+
+        return send_file(banner_path)
+
+    @jwt_required()
+    @resolve_player_id
+    def put(self, player_id):
+        if str(player_id) != get_jwt_identity():
+            abort(403)
+
+        banner_file = request.files["file"]
+
+        banner_path = app.banners_dir / f"{player_id}.jpg"
+        if banner_path.exists():
+            banner_path.unlink()
+
+        # crop and resize the image to a better banner size
+        original_img = Image.open(banner_file)
+        banner_img = ImageOps.fit(original_img, self.BANNER_SIZE)
+        banner_img.save(banner_path, format='JPEG', subsampling=0, quality=95)
+        return "", 204
+
+    @jwt_required()
+    @resolve_player_id
+    def delete(self, player_id):
+        if str(player_id) != get_jwt_identity():
+            abort(403)
+
+        banner_path = app.banners_dir / f"{player_id}.jpg"
+        if banner_path.exists():
+            banner_path.unlink()
+            return "", 204
+
+        return {"message": "no banner found for that player."}, 404
