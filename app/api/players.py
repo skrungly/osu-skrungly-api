@@ -218,7 +218,7 @@ class PlayerBannerAPI(Resource):
             banner_path.unlink()
 
         # crop and resize the image to a better banner size
-        original_img = Image.open(banner_file)
+        original_img = Image.open(banner_file).convert("RGB")
         banner_img = ImageOps.fit(original_img, self.BANNER_SIZE)
         banner_img.save(banner_path, format='JPEG', subsampling=0, quality=95)
         return "", 204
