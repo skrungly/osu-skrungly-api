@@ -99,6 +99,9 @@ class BeatmapSchema(Schema):
     hp = fields.Float()
     diff = fields.Float()
 
+    # custom property, given when sorting by popularity
+    popularity = fields.Int()
+
 
 class ScoreSchema(Schema):
     id = fields.Int()
@@ -257,3 +260,37 @@ class ScoresOptionsSchema(PageOptionsSchema):
             return
 
         raise ValidationError("invalid beatmap id or md5")
+
+
+class BeatmapsOptionsSchema(PageOptionsSchema):
+    _SORT_OPTIONS = {
+        "plays": "plays",
+        "passes": "passes",
+        "diff": "diff",
+        "length": "total_length",
+        "popular": None,  # more involved than just a db key
+    }
+
+    _STATUS_ALIASES = {
+        "0": {0},
+        "2": {2},
+        "3": {3},
+        "4": {4},
+        "5": {5},
+        "pending": {0},
+        "ranked": {2},
+        "approved": {3},
+        "qualified": {4},
+        "loved": {5},
+        "leaderboard": {2, 3, 4, 5},
+        "all": {0, 2, 3, 4, 5}
+    }
+
+    sort = fields.Str(
+        validate=validate.OneOf(_SORT_OPTIONS),
+        load_default="passes",
+    )
+    status = fields.Str(validate=validate.OneOf(_STATUS_ALIASES))
+    mode = ModeField()
+    set_id = fields.Int()
+    frozen = fields.Bool()

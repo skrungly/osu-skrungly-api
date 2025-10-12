@@ -29,5 +29,5 @@ def swagger_docs():
 
 
 from app.api import (  # noqa: F401 E402
-    auth, beatmaps, players, scores, stats
+    auth, maps, mapsets, players, scores, stats
 )
