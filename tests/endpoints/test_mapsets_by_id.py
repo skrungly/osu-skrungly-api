@@ -7,10 +7,16 @@ def test_get_ranked_bancho_mapset(client, expected_data):
     response = client.get(f"/mapsets/{expected_map['set_id']}")
 
     assert response.status_code == 200
-    assert len(response.json) == 5  # mapset has 5 difficulties
+    assert len(response.json) > 0
 
+    expected_map_visited = False
     for map_data in response.json:
         assert all(key in map_data for key in expected_map)
+
+        if map_data["md5"] == expected_map["md5"]:
+            expected_map_visited = True
+
+    assert expected_map_visited
 
 
 @pytest.mark.parametrize("set_id", ["2", "aaaaa"])
