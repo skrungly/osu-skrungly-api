@@ -71,9 +71,9 @@ class BeatmapQueryAPI(Resource):
             select_query = f"""
                 SELECT m.*, count(s.map_md5) AS popularity FROM maps m
                 LEFT JOIN scores s ON m.md5 = s.map_md5
-                {filter_query}
+                {filter_query} AND s.mode = m.mode
                 GROUP BY m.md5
-                ORDER BY popularity DESC
+                ORDER BY popularity DESC, m.diff DESC
                 LIMIT %s OFFSET %s
                 """
         else:
