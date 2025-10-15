@@ -1,5 +1,7 @@
 import pytest
 
+SCORES_ENDPOINT = "/scores"
+
 # (sort by ...) => <target>
 SORT_OPTIONS = {
     "recent": "id",  # default
@@ -40,7 +42,7 @@ STATUS_ALIASES = {
 def test_get_scores_sorted(client, sort_by):
     params = None if sort_by is None else {"sort": sort_by}
 
-    response = client.get("/scores", query_string=params)
+    response = client.get(SCORES_ENDPOINT, query_string=params)
 
     assert response.status_code == 200
     assert len(response.json) > 0
@@ -69,7 +71,7 @@ def test_get_scores_filtered_basic(client, expected_data, filter_by):
         value = expected_data(source)[key]
 
         response = client.get(
-            "/scores",
+            SCORES_ENDPOINT,
             query_string={
                 filter_by: value,
                 "limit": 100,  # TODO: put max limit in app.config
@@ -93,7 +95,7 @@ def test_get_scores_filtered_basic(client, expected_data, filter_by):
 def test_get_scores_filtered_by_status(client, status):
     params = None if status is None else {"status": status}
 
-    response = client.get("/scores", query_string=params)
+    response = client.get(SCORES_ENDPOINT, query_string=params)
 
     assert response.status_code == 200
     assert len(response.json) > 0
@@ -119,7 +121,7 @@ def test_get_scores_with_compound_query(client, expected_data):
         key = attributes["score"]
         params[filter_by] = expected_score[key]
 
-    response = client.get("/scores", query_string=params)
+    response = client.get(SCORES_ENDPOINT, query_string=params)
 
     assert response.status_code == 200
     assert len(response.json) > 0
@@ -139,6 +141,21 @@ def test_get_scores_with_compound_query(client, expected_data):
     assert expected_score_visited
 
 
+def test_get_scores_for_frontpage(client):
+    response = client.get(SCORES_ENDPOINT, query_string={"sort": "frontpage"})
+
+    assert response.status_code == 200
+    assert len(response.json) > 0
+
+    seen_players = set()
+    for score in response.json:
+        # must have one unique for each player
+        assert score["userid"] not in seen_players
+        assert score["status"] == 2  # must be a personal best
+
+        seen_players.add(score["userid"])
+
+
 # TODO: pagination tests might be better as a separate set of unit
 # tests, so that this case can be checked for all similar endpoints
 def test_get_scores_with_limit_and_page(client):
@@ -146,14 +163,14 @@ def test_get_scores_with_limit_and_page(client):
     PAGED_LIMIT = 2  # must be no more than half of TOP_LIMIT
 
     response_top = client.get(
-        "/scores", query_string={"limit": TOP_LIMIT}
+        SCORES_ENDPOINT, query_string={"limit": TOP_LIMIT}
     )
 
     assert response_top.status_code == 200
     assert len(response_top.json) == TOP_LIMIT
 
     response_paged = client.get(
-        "/scores", query_string={"limit": PAGED_LIMIT, "page": 1}
+        SCORES_ENDPOINT, query_string={"limit": PAGED_LIMIT, "page": 1}
     )
 
     assert response_paged.status_code == 200
@@ -172,7 +189,7 @@ def test_get_scores_with_limit_and_page(client):
     )
 )
 def test_get_scores_with_empty_result(client, filter_by, value):
-    response = client.get("/scores", query_string={filter_by: value})
+    response = client.get(SCORES_ENDPOINT, query_string={filter_by: value})
 
     assert response.status_code == 200
     assert response.json == []
