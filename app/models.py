@@ -224,6 +224,7 @@ class ScoresOptionsSchema(PageOptionsSchema):
         "pp": "pp",
         "combo": "max_combo",
         "length": "time_elapsed",
+        "frontpage": None,
     }
 
     _STATUS_ALIASES = {

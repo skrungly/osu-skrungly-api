@@ -81,9 +81,7 @@ class ScoresScreenAPI(Resource):
 
 @namespace.route("")
 class ScoresQueryAPI(Resource):
-    def get(self):
-        args = score_options_schema.load(request.args)
-
+    def _fetch_for_query(self, args):
         sort_field = score_options_schema._SORT_OPTIONS[args["sort"]]
         order_by_query = f"ORDER BY s.{sort_field} DESC"
 
@@ -141,7 +139,36 @@ class ScoresQueryAPI(Resource):
                 """, (*filter_values, args["limit"], offset)
             )
 
-            fetched_data = cursor.fetchall()
+            return cursor.fetchall()
+
+    def _fetch_for_frontpage(self, args):
+        db.ping()
+        with db.cursor() as cursor:
+            cursor.execute("""
+                SELECT s.*, m.*, u.* FROM scores s
+                INNER JOIN (
+                    SELECT t.userid, MAX(t.id) as max_id FROM scores t
+                    WHERE t.status = 2
+                    GROUP BY t.userid
+                ) r ON s.userid = r.userid AND s.id = r.max_id
+                INNER JOIN maps m ON s.map_md5 = m.md5
+                INNER JOIN users u ON u.id = s.userid
+                ORDER BY s.id DESC
+                LIMIT %s
+                """, args["limit"]
+            )
+
+            return cursor.fetchall()
+
+    def get(self):
+        args = score_options_schema.load(request.args)
+
+        # we have to handle `sort=frontpage` separately because it is
+        # a special case that doesn't work with the other options
+        if args["sort"] == "frontpage":
+            fetched_data = self._fetch_for_frontpage(args)
+        else:
+            fetched_data = self._fetch_for_query(args)
 
         # the data is a mix of map, score, and player properties,
         # which need to be separated to fit the score model
