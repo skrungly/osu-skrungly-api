@@ -69,6 +69,7 @@ class PlayerSchema(Schema):
 class LeaderboardSchema(Schema):
     id = fields.Int()
     name = fields.Str()
+    latest_activity = fields.Int()
     pp = fields.Int()
     plays = fields.Int()
     tscore = fields.Int()

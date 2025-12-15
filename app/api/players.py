@@ -59,7 +59,9 @@ class PlayerListAPI(Resource):
         with db.cursor() as cursor:
             offset = args["limit"] * args["page"]
             cursor.execute(f"""
-                SELECT u.id, u.name, s.pp, s.plays, s.tscore, s.rscore
+                SELECT
+                    u.id, u.name, u.latest_activity,
+                    s.pp, s.plays, s.tscore, s.rscore
                 FROM users u INNER JOIN stats s
                 ON u.id = s.id
                 WHERE s.mode = %s && s.plays != 0
