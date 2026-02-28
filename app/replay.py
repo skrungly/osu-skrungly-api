@@ -14,17 +14,12 @@ import requests
 from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 
 from app import app
-from app.utils import DEFAULT_SKIN_ID, FONT_URL
+from app.utils import BEATMAP_BG_MIRRORS, DEFAULT_SKIN_ID, FONT_URL
 
 REPLAY_WIDTH = 1920
 REPLAY_HEIGHT = 1080
 REPLAY_ASPECT = REPLAY_WIDTH / REPLAY_HEIGHT
 REPLAY_RESOLUTION = (REPLAY_WIDTH, REPLAY_HEIGHT)
-
-BG_IMAGE_URLS = [  # TODO: might be time to make a custom mirror?
-    # "https://beatconnect.io/bg/{set_id}/{id}",
-    "https://b.ppy.sh/thumb/{set_id}l.jpg",
-]
 
 # the top 1/8th of the screen is a dark header for map info
 HEADER_HEIGHT = REPLAY_HEIGHT // 8 - 1
@@ -205,9 +200,10 @@ def _write_score_text(img, text, x, y, charset, spacing=0):
 
 
 def _fetch_bg_image(beatmap):
-    for api_url in BG_IMAGE_URLS:
+    for api_url in BEATMAP_BG_MIRRORS:
         bg_url = api_url.format(**beatmap)
         response = requests.get(bg_url)
+
         if response.status_code == 200:
             return Image.open(BytesIO(response.content))
 
