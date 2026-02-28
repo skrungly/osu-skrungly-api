@@ -1,8 +1,10 @@
-from flask import abort, request
+from flask import abort, request, send_file
 from flask_restx import Resource
 
 from app import db, models
 from app.api import api
+from app.rates import regenerate_osz_with_rates
+from app.utils import fetch_beatmap_osz
 
 namespace = api.namespace(
     name="maps",
@@ -13,15 +15,67 @@ beatmap_schema = models.BeatmapSchema()
 map_options_schema = models.BeatmapsOptionsSchema()
 
 
+def _fetch_map_data(map_id):
+    db.ping()
+    with db.cursor() as cursor:
+        cursor.execute("SELECT * FROM maps WHERE id = %s", (map_id,))
+        return cursor.fetchone()
+
+
 @namespace.route("/<int:map_id>")
 class BeatmapAPI(Resource):
     def get(self, map_id):
-        db.ping()
-        with db.cursor() as cursor:
-            cursor.execute("SELECT * FROM maps WHERE id = %s", (map_id,))
-            map_data = cursor.fetchone()
+        map_data = _fetch_map_data(map_id)
+        if not map_data:
+            return {"message": "map does not exist in the database"}, 404
 
-        return beatmap_schema.dump(map_data) or abort(404)
+        return beatmap_schema.dump(map_data)
+
+
+@namespace.route("/<int:map_id>/download")
+class BeatmapDownloadAPI(Resource):
+    def get(self, map_id):
+        rates = request.args.getlist("rate")
+        models.BeatmapRateDownloadSchema().validate({"rate": rates})
+
+        map_data = _fetch_map_data(map_id)
+        if not map_data:
+            return {"message": "map does not exist in the database"}, 404
+
+        try:
+            osz_buffer = fetch_beatmap_osz(map_data["set_id"])
+        except RuntimeError as e:
+            # details should be provided in the error.
+            return {"message": e.args[0]}, 422
+
+        if osz_buffer is None:
+            return {"message": "unable to fetch map from any mirrors"}, 422
+
+        if rates:
+            try:
+                osz_buffer = regenerate_osz_with_rates(
+                    osz_buffer,
+                    map_data["filename"],
+                    rates,
+                )
+            except FileNotFoundError:
+                return {"message": "rate change service is unavailable"}, 503
+
+            except RuntimeError as e:
+                return {"message": e.args[0]}, 500
+
+        rates_info = f" (+ {', '.join(rates)})" if rates else ""
+        download_name = (
+            f"{map_data['set_id']} "
+            f"{map_data['artist']} - {map_data['title']}"
+            f"{rates_info}.osz"
+        )
+
+        return send_file(
+            osz_buffer,
+            download_name=download_name,
+            mimetype="application/octet-stream"
+        )
 
 
 @namespace.route("")

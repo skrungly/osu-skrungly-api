@@ -1,3 +1,5 @@
+import re
+
 from marshmallow import Schema, fields, validate, validates, ValidationError
 
 from app import db
@@ -296,3 +298,15 @@ class BeatmapsOptionsSchema(PageOptionsSchema):
     mode = ModeField()
     set_id = fields.Int()
     frozen = fields.Bool()
+
+
+class BeatmapRateDownloadSchema(Schema):
+    _RATE_REGEX = re.compile(r"\d+(?:.\d+)(?:x|bpm)")
+
+    rate = fields.List(fields.Str(), load_default=[])
+
+    @validates("rate")
+    def validates_rate(self, value: list[str], data_key: str) -> None:
+        for rate in value:
+            if not self._RATE_REGEX.match(rate):
+                raise ValidationError("rate must be a multiplier or bpm")
