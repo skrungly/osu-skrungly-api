@@ -205,7 +205,8 @@ def _fetch_bg_image(beatmap):
         response = requests.get(bg_url)
 
         if response.status_code == 200:
-            return Image.open(BytesIO(response.content))
+            bg_img = Image.open(BytesIO(response.content))
+            return bg_img.convert("RGBA")
 
     # if no source was found, fallback to plain black
     return Image.new("RGBA", REPLAY_RESOLUTION)
@@ -250,8 +251,10 @@ def get_replay_screen(score, beatmap, username, skin):
         crop_bottom = crop_top + new_height
 
     crop_box = (crop_left, crop_top, crop_right, crop_bottom)
-    replay_img = source_bg.crop(crop_box).resize(REPLAY_RESOLUTION)
-    draw = ImageDraw.Draw(replay_img, "RGBA")
+    replay_bg = source_bg.crop(crop_box).resize(REPLAY_RESOLUTION)
+
+    replay_ui = Image.new("RGBA", REPLAY_RESOLUTION)
+    draw = ImageDraw.Draw(replay_ui, "RGBA")
 
     # the background of the map is darkened by 40%
     draw.rectangle((0, 0, *REPLAY_RESOLUTION), fill=(0, 0, 0, 102))
@@ -287,7 +290,7 @@ def get_replay_screen(score, beatmap, username, skin):
 
     with _skin_element("ranking-panel", skin) as panel_img:
         panel_img = _scale_image(panel_img, PANEL_SCALE)
-        replay_img.paste(panel_img, (0, PANEL_START), panel_img)
+        replay_ui.paste(panel_img, (0, PANEL_START), panel_img)
 
     # this is roughly how the game seems to scale the judgements
     for index, (db_key, name) in enumerate(JUDGE_NAMES[score['mode'] % 4]):
@@ -300,9 +303,9 @@ def get_replay_screen(score, beatmap, username, skin):
         y = JUDGE_ROWS[judge_row]
 
         with _skin_element(name, skin) as judge_img:
-            _paste_centred_scaled(replay_img, judge_img, x, y, JUDGE_SCALE)
+            _paste_centred_scaled(replay_ui, judge_img, x, y, JUDGE_SCALE)
             _write_score_text(
-                replay_img,
+                replay_ui,
                 f"{score[db_key]}x",
                 x + HIT_OFFSET_X,
                 y + HIT_OFFSET_Y,
@@ -312,7 +315,7 @@ def get_replay_screen(score, beatmap, username, skin):
 
     with _skin_element(f"ranking-{score['grade']}", skin) as grade_img:
         _paste_centred_scaled(
-            replay_img,
+            replay_ui,
             grade_img,
             GRADE_X,
             GRADE_Y,
@@ -321,12 +324,12 @@ def get_replay_screen(score, beatmap, username, skin):
 
     with _skin_element("ranking-graph", skin) as graph_img:
         graph_img = _scale_image(graph_img, GRAPH_SCALE)
-        replay_img.paste(graph_img, (GRAPH_X, GRAPH_Y), graph_img)
+        replay_ui.paste(graph_img, (GRAPH_X, GRAPH_Y), graph_img)
 
     if score["perfect"]:
         with _skin_element("ranking-perfect", skin) as perf_img:
             _paste_centred_scaled(
-                replay_img,
+                replay_ui,
                 perf_img,
                 PERF_X,
                 PERF_Y,
@@ -335,14 +338,14 @@ def get_replay_screen(score, beatmap, username, skin):
 
     with _skin_element("ranking-title", skin) as title_img:
         title_img = _scale_image(title_img, TITLE_SCALE)
-        replay_img.paste(
+        replay_ui.paste(
             title_img,
             (TITLE_X_RIGHT - title_img.width, TITLE_Y),
             title_img
         )
 
     _write_score_text(
-        replay_img,
+        replay_ui,
         f"{score['score']:07}",
         SCORE_X,
         SCORE_Y - SCORE_CHARSET["0"].height // 2,
@@ -352,10 +355,10 @@ def get_replay_screen(score, beatmap, username, skin):
 
     with _skin_element("ranking-accuracy", skin) as acc_img:
         acc_img = _scale_image(acc_img, STATS_SCALE)
-        replay_img.paste(acc_img, (ACC_X, STATS_Y), acc_img)
+        replay_ui.paste(acc_img, (ACC_X, STATS_Y), acc_img)
 
     _write_score_text(
-        replay_img,
+        replay_ui,
         f"{score['acc']:.02f}%",
         ACC_X + STATS_OFFSET_X,
         STATS_Y + STATS_OFFSET_Y,
@@ -365,10 +368,10 @@ def get_replay_screen(score, beatmap, username, skin):
 
     with _skin_element("ranking-maxcombo", skin) as combo_img:
         combo_img = _scale_image(combo_img, STATS_SCALE)
-        replay_img.paste(combo_img, (COMBO_X, STATS_Y), combo_img)
+        replay_ui.paste(combo_img, (COMBO_X, STATS_Y), combo_img)
 
     _write_score_text(
-        replay_img,
+        replay_ui,
         f"{score['max_combo']}x",
         COMBO_X + STATS_OFFSET_X,
         STATS_Y + STATS_OFFSET_Y,
@@ -379,11 +382,14 @@ def get_replay_screen(score, beatmap, username, skin):
     for index, mod in enumerate(Mods(score["mods"])):
         with _skin_element(mod.skin_name, skin) as mod_img:
             _paste_centred_scaled(
-                replay_img,
+                replay_ui,
                 mod_img,
                 MODS_X - MODS_SPACING * index,
                 MODS_Y,
                 MODS_SCALE
             )
 
+    # now lay the UI over the background image. using alpha_composite
+    # here because ImageDraw.draw was behaving unexpectedly sometimes
+    replay_img = Image.alpha_composite(replay_bg, replay_ui)
     return replay_img
