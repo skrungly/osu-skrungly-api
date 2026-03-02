@@ -34,9 +34,18 @@ def _run_cosu_trainer(task, diff_path, rates, index):
         stderr=subprocess.PIPE,
     )
 
+    def _raise_on_timeout_or_error():
+        if time.time() - started_at > COSU_TRAINER_TIMEOUT:
+            proc.kill()
+            raise RuntimeError("cosu-trainer took too long!")
+
+        if proc.poll():
+            raise RuntimeError(f"cosu-trainer failed! [{proc.returncode}]")
+
     while proc.poll() is None:
         output = b""
         while (char := proc.stdout.read(1)) != b"\r":
+            _raise_on_timeout_or_error()
             output += char
 
         progress = 0.0
@@ -53,12 +62,7 @@ def _run_cosu_trainer(task, diff_path, rates, index):
             }
         )
 
-        if time.time() - started_at > COSU_TRAINER_TIMEOUT:
-            proc.kill()
-            raise RuntimeError("cosu-trainer took too long!")
-
-    if proc.returncode:
-        raise RuntimeError(f"cosu-trainer failed! [{proc.returncode}]")
+        _raise_on_timeout_or_error()
 
 
 @celery.task(bind=True)
