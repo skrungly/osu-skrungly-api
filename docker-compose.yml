@@ -3,12 +3,26 @@ name: osu-api
 services:
   flask:
     build: .
+    command: "gunicorn app:app -b 0.0.0.0:80"
     volumes:
       - osu-bancho:/.data
     networks:
       - default
       - osu-mysql
       - osu-nginx
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_started
+
+  celery-worker:
+    build: .
+    command: "celery -A app.celery worker --loglevel=info"
+    volumes:
+      - osu-bancho:/.data
+    networks:
+      - default
+      - osu-mysql
     restart: unless-stopped
     depends_on:
       redis:

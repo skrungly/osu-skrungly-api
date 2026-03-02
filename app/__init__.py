@@ -3,11 +3,19 @@ from pathlib import Path
 
 import dotenv
 import pymysql
+from celery import Celery
 from flask import Flask
 from flask_jwt_extended import JWTManager
 from redis import Redis
 
 dotenv.load_dotenv()
+
+REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+REDIS_USER = os.environ.get("REDIS_USERNAME", "default")
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", "")
+
+REDIS_URL = f"redis://{REDIS_USER}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}"
 
 
 class SkrunglyAPI(Flask):
@@ -45,23 +53,28 @@ class SkrunglyAPI(Flask):
     def font_dir(self):
         return self.data_path("font")
 
+    @property
+    def osz_dir(self):
+        return self.data_path("osz")
+
 
 app = SkrunglyAPI(os.environ.get("DATA_FOLDER"))
 
 app.config["SECRET_KEY"] = os.environ["SECRET_KEY"]
+app.config["PROPAGATE_EXCEPTIONS"] = True
+
 app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
 app.config["JWT_ERROR_MESSAGE_KEY"] = "message"
 app.config["JWT_SESSION_COOKIE"] = False
 app.config["JWT_COOKIE_SECURE"] = True
-app.config["PROPAGATE_EXCEPTIONS"] = True
 
 jwt = JWTManager(app)
 
 redis = Redis(
-    host=os.environ.get("REDIS_HOST", "redis"),
-    port=int(os.environ.get("REDIS_PORT", 6379)),
-    username=os.environ.get("REDIS_USERNAME", "default"),
-    password=os.environ.get("REDIS_PASSWORD"),
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    username=REDIS_USER,
+    password=REDIS_PASSWORD,
     db=0,
     decode_responses=True,
 )
@@ -76,6 +89,11 @@ db = pymysql.connect(
     autocommit=True,
 )
 
+celery = Celery(
+    app.name,
+    broker=REDIS_URL,
+    result_backend=REDIS_URL,
+)
 
 from app import logging, replay, skins, utils  # noqa: F401 E402
 from app.api import api  # noqa: F401 E402

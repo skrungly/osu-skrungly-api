@@ -1,10 +1,9 @@
-from flask import abort, request, send_file
+from flask import abort, request
 from flask_restx import Resource
 
 from app import db, models
 from app.api import api
-from app.rates import regenerate_osz_with_rates
-from app.utils import fetch_beatmap_osz
+from app.rates import generate_osz_with_rates
 
 namespace = api.namespace(
     name="maps",
@@ -42,40 +41,13 @@ class BeatmapDownloadAPI(Resource):
         if not map_data:
             return {"message": "map does not exist in the database"}, 404
 
-        try:
-            osz_buffer = fetch_beatmap_osz(map_data["set_id"])
-        except RuntimeError as e:
-            # details should be provided in the error.
-            return {"message": e.args[0]}, 422
-
-        if osz_buffer is None:
-            return {"message": "unable to fetch map from any mirrors"}, 422
-
-        if rates:
-            try:
-                osz_buffer = regenerate_osz_with_rates(
-                    osz_buffer,
-                    map_data["filename"],
-                    rates,
-                )
-            except FileNotFoundError:
-                return {"message": "rate change service is unavailable"}, 503
-
-            except RuntimeError as e:
-                return {"message": e.args[0]}, 500
-
-        rates_info = f" (+ {', '.join(rates)})" if rates else ""
-        download_name = (
-            f"{map_data['set_id']} "
-            f"{map_data['artist']} - {map_data['title']}"
-            f"{rates_info}.osz"
+        task = generate_osz_with_rates.delay(
+            map_data["set_id"],
+            map_data["filename"],
+            rates,
         )
 
-        return send_file(
-            osz_buffer,
-            download_name=download_name,
-            mimetype="application/octet-stream"
-        )
+        return {"task": task.id}, 202
 
 
 @namespace.route("")
