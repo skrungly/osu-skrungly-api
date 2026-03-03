@@ -51,7 +51,7 @@ def _run_cosu_trainer(task, diff_path, rates, index):
         progress = 0.0
         percent = output.rstrip(b"%")
         if percent.isdigit() and int(percent) <= 100:
-            progress = (1 + index + int(percent) / 100) / (len(rates) + 1)
+            progress = (index + int(percent) / 100) / len(rates)
 
         task.update_state(
             state="PROGRESS",
@@ -73,7 +73,7 @@ def generate_osz_with_rates(self, map_info, rates=None):
     self.update_state(
         state="PROGRESS",
         meta={
-            "current": 0.0,
+            "current": None,
             "total": 1.0,
             "status": "downloading .osz file"
         }
@@ -105,7 +105,7 @@ def generate_osz_with_rates(self, map_info, rates=None):
     self.update_state(
         state="PROGRESS",
         meta={
-            "current": 1 / (len(rates) + 1),
+            "current": 0.0,
             "total": 1.0,
             "status": "retrieved .osz file"
         }
@@ -125,7 +125,7 @@ def generate_osz_with_rates(self, map_info, rates=None):
             self.update_state(
                 state="PROGRESS",
                 meta={
-                    "current": (2 + i) / (len(rates) + 1),
+                    "current": (1 + i) / len(rates),
                     "total": 1.0,
                     "status": f"generated {rate}"
                 }
