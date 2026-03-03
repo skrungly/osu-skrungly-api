@@ -66,7 +66,7 @@ def _run_cosu_trainer(task, diff_path, rates, index):
 
 
 @celery.task(bind=True)
-def generate_osz_with_rates(self, set_id, diff_file=None, rates=None):
+def generate_osz_with_rates(self, map_info, rates=None):
     if rates and not COSU_TRAINER_BIN:
         raise FileNotFoundError("unable to locate cosu-trainer")
 
@@ -79,20 +79,26 @@ def generate_osz_with_rates(self, set_id, diff_file=None, rates=None):
         }
     )
 
-    osz_buffer = fetch_beatmap_osz(set_id)
+    osz_buffer = fetch_beatmap_osz(map_info["set_id"])
     if osz_buffer is None:
         raise RuntimeError("unable to fetch map from any mirrors")
 
+    osz_name = "{set_id} {artist} - {title}.osz".format(**map_info)
+    task_dir = app.osz_dir / self.request.id
+    task_dir.mkdir()
+
+    osz_path = task_dir / osz_name
+    result_path = Path("/") / osz_path.relative_to(app._data_dir)
+
     if not rates:
-        osz_name = f"{set_id}.osz"
-        with open(app.osz_dir / osz_name, "wb") as osz_file:
+        with open(osz_path, "wb") as osz_file:
             osz_file.write(osz_buffer.getbuffer())
 
         return {
             "current": 1.0,
             "total": 1.0,
             "status": "saved .osz file",
-            "result": f"/osz/{osz_name}"
+            "result": str(result_path)
         }
 
     # if user wants rates, we're not done yet.
@@ -108,7 +114,7 @@ def generate_osz_with_rates(self, set_id, diff_file=None, rates=None):
     # start by preparing a temp map dir for cosu-trainer
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
-        diff_path = temp_path / diff_file
+        diff_path = temp_path / map_info["filename"]
 
         with ZipFile(osz_buffer) as osz:
             osz.extractall(temp_path)
@@ -131,13 +137,12 @@ def generate_osz_with_rates(self, set_id, diff_file=None, rates=None):
                 for file in files:
                     modified_osz.write(Path(root) / file, file)
 
-        osz_name = f"{self.request.id}.osz"
-        with open(app.osz_dir / osz_name, "wb") as osz_file:
+        with open(osz_path, "wb") as osz_file:
             osz_file.write(modified_osz_buffer.getbuffer())
 
         return {
             "current": 1.0,
             "total": 1.0,
             "status": "generated modified .osz file",
-            "result": f"/osz/{osz_name}"
+            "result": str(result_path)
         }

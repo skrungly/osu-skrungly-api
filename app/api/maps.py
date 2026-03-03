@@ -44,12 +44,7 @@ class BeatmapDownloadAPI(Resource):
         if not map_data:
             return {"message": "map does not exist in the database"}, 404
 
-        task = generate_osz_with_rates.delay(
-            map_data["set_id"],
-            map_data["filename"],
-            rates,
-        )
-
+        task = generate_osz_with_rates.delay(map_data, rates)
         return {"task": task.id}, 202
 
 

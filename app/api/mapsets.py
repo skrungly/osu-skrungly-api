@@ -34,5 +34,7 @@ class BeatmapSetDownloadAPI(Resource):
         if not mapset_data:
             return {"message": "mapset does not exist in the database"}, 404
 
-        task = generate_osz_with_rates.delay(set_id)
+        # since this endpoint doesn't deal with rates, we can just
+        # pass any difficulty to get the full unmodified .osz
+        task = generate_osz_with_rates.delay(mapset_data[0])
         return {"task": task.id}, 202
