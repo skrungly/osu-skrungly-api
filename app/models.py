@@ -301,7 +301,7 @@ class BeatmapsOptionsSchema(PageOptionsSchema):
 
 
 class BeatmapRateDownloadSchema(Schema):
-    _RATE_REGEX = re.compile(r"\d+(?:.\d+)(?:x|bpm)")
+    _RATE_REGEX = re.compile(r"^\d+(?:.\d+)(?:x|bpm)$")
 
     rate = fields.List(fields.Str(), load_default=[])
 

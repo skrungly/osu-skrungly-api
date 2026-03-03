@@ -35,7 +35,10 @@ class BeatmapAPI(Resource):
 class BeatmapDownloadAPI(Resource):
     def get(self, map_id):
         rates = request.args.getlist("rate")
-        models.BeatmapRateDownloadSchema().validate({"rate": rates})
+
+        issues = models.BeatmapRateDownloadSchema().validate({"rate": rates})
+        if issues:
+            return issues, 422
 
         map_data = _fetch_map_data(map_id)
         if not map_data:
