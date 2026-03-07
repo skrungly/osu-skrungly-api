@@ -78,6 +78,19 @@ def _run_cosu_trainer(task, diff_path, rates, index, log_file):
         raise RuntimeError(f"cosu-trainer failed! [{proc.returncode}]")
 
 
+def _find_diff_file(mapset_path, map_id):
+    for diff_path in mapset_path.glob("*.osu"):
+        with open(diff_path) as diff_file:
+            for line in diff_file:
+                if not line.startswith("BeatmapID"):
+                    continue
+
+                if line.strip().endswith(map_id):
+                    return diff_path
+
+                break
+
+
 @celery.task(bind=True)
 def generate_osz_with_rates(self, map_info, rates=None):
     if rates and not COSU_TRAINER_BIN:
@@ -131,10 +144,13 @@ def generate_osz_with_rates(self, map_info, rates=None):
     # start by preparing a temp map dir for cosu-trainer
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
-        diff_path = temp_path / map_info["filename"]
 
         with ZipFile(osz_buffer) as osz:
             osz.extractall(temp_path)
+
+        diff_path = _find_diff_file(temp_path, str(map_info['id']))
+        if diff_path is None:
+            raise FileNotFoundError("unable to find .osu file for map?")
 
         with open(log_path, "wb") as log_file:
             for i, rate in enumerate(rates):
