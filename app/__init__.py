@@ -57,6 +57,10 @@ class SkrunglyAPI(Flask):
     def osz_dir(self):
         return self.data_path("osz")
 
+    @property
+    def log_dir(self):
+        return self.data_path("logs")
+
 
 app = SkrunglyAPI(os.environ.get("DATA_FOLDER"))
 

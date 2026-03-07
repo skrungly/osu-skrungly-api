@@ -16,7 +16,7 @@ COSU_TRAINER_BIN = os.environ.get(
 )
 
 
-def _run_cosu_trainer(task, diff_path, rates, index):
+def _run_cosu_trainer(task, diff_path, rates, index, log_file):
     current_rate = rates[index]
 
     proc_args = [
@@ -27,42 +27,55 @@ def _run_cosu_trainer(task, diff_path, rates, index):
         "of",
     ]
 
+    log_file.write(f"### {proc_args}\n\n".encode())
+
     started_at = time.time()
     proc = subprocess.Popen(
         proc_args,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
     )
 
-    def _raise_on_timeout_or_error():
+    prev_line = None
+    next_line = bytearray()
+
+    while proc.poll() is None:
         if time.time() - started_at > COSU_TRAINER_TIMEOUT:
             proc.kill()
             raise RuntimeError("cosu-trainer took too long!")
 
-        if proc.poll():
-            raise RuntimeError(f"cosu-trainer failed! [{proc.returncode}]")
+        # read one character per iteration to keep it predictable
+        char = proc.stdout.read(1)
 
-    while proc.poll() is None:
-        output = b""
-        while (char := proc.stdout.read(1)) != b"\r":
-            _raise_on_timeout_or_error()
-            output += char
+        if char == b"%" and next_line.isdigit():
+            progress = int(next_line) / 100
+            task.update_state(
+                state="PROGRESS",
+                meta={
+                    "current": (index + progress) / len(rates),
+                    "total": 1.0,
+                    "status": f"generating {current_rate}"
+                }
+            )
 
-        progress = 0.0
-        percent = output.rstrip(b"%")
-        if percent.isdigit() and int(percent) <= 100:
-            progress = (index + int(percent) / 100) / len(rates)
+        elif char == b"\r":
+            char = b"\n"
 
-        task.update_state(
-            state="PROGRESS",
-            meta={
-                "current": progress,
-                "total": 1.0,
-                "status": f"generating {current_rate}"
-            }
-        )
+        next_line += char
 
-        _raise_on_timeout_or_error()
+        if char == b"\n":
+            # only log lines that differ from the last, because
+            # cosu-trainer repeats a *lot* of progress updates
+            if next_line != prev_line:
+                log_file.write(next_line)
+                prev_line = next_line.copy()
+
+            next_line.clear()
+
+    log_file.write(b"\n")
+
+    if proc.poll():
+        raise RuntimeError(f"cosu-trainer failed! [{proc.returncode}]")
 
 
 @celery.task(bind=True)
@@ -111,6 +124,10 @@ def generate_osz_with_rates(self, map_info, rates=None):
         }
     )
 
+    log_dir = app.log_dir / "rates"
+    log_dir.mkdir(exist_ok=True)
+    log_path = log_dir / f"{self.request.id}.log"
+
     # start by preparing a temp map dir for cosu-trainer
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
@@ -119,17 +136,18 @@ def generate_osz_with_rates(self, map_info, rates=None):
         with ZipFile(osz_buffer) as osz:
             osz.extractall(temp_path)
 
-        for i, rate in enumerate(rates):
-            _run_cosu_trainer(self, diff_path, rates, i)
+        with open(log_path, "wb") as log_file:
+            for i, rate in enumerate(rates):
+                _run_cosu_trainer(self, diff_path, rates, i, log_file)
 
-            self.update_state(
-                state="PROGRESS",
-                meta={
-                    "current": (1 + i) / len(rates),
-                    "total": 1.0,
-                    "status": f"generated {rate}"
-                }
-            )
+                self.update_state(
+                    state="PROGRESS",
+                    meta={
+                        "current": (1 + i) / len(rates),
+                        "total": 1.0,
+                        "status": f"generated {rate}"
+                    }
+                )
 
         modified_osz_buffer = BytesIO()
         with ZipFile(modified_osz_buffer, "w") as modified_osz:
