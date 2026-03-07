@@ -27,7 +27,7 @@ def _run_cosu_trainer(task, diff_path, rates, index, log_file):
         "of",
     ]
 
-    log_file.write(f"### {proc_args}\n\n".encode())
+    log_file.write(f"==> {proc_args}\n\n".encode())
 
     started_at = time.time()
     proc = subprocess.Popen(
@@ -38,6 +38,15 @@ def _run_cosu_trainer(task, diff_path, rates, index, log_file):
 
     prev_line = None
     next_line = bytearray()
+
+    task.update_state(
+        state="PROGRESS",
+        meta={
+            "current": index / len(rates),
+            "total": 1.0,
+            "status": f"generating {current_rate}"
+        }
+    )
 
     while proc.poll() is None:
         if time.time() - started_at > COSU_TRAINER_TIMEOUT:
