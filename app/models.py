@@ -64,7 +64,10 @@ class PlayerSchema(Schema):
     latest_activity = fields.Int()
     preferred_mode = fields.Int()
     userpage_content = fields.Str()
+
+    # properties that aren't just database fields:
     stats = fields.List(fields.Nested(PlayerStatsSchema))
+    online = fields.Bool()
 
 
 # TODO: maybe borrow fields from PlayerSchema and/or GlobalStatsSchema

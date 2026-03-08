@@ -1,14 +1,14 @@
 import pytest
 
 
-@pytest.mark.parametrize("player_id", ["/3", "/shinx"])
+@pytest.mark.parametrize("player_id", ["3", "shinx"])
 class TestValidPlayer:
 
     def test_get_valid_player(self, client, expected_data, player_id):
         expected_player = expected_data("player")
         expected_stats = expected_data("player_stats")
 
-        response = client.get(f"/players{player_id}")
+        response = client.get(f"/players/{player_id}")
 
         assert response.status_code == 200
 
@@ -44,7 +44,7 @@ class TestValidPlayer:
         expected_stats = expected_data("player_stats")
 
         response = client.get(
-            f"/players{player_id}/stats",
+            f"/players/{player_id}/stats",
             query_string={
                 "mode": mode_id
             }
@@ -59,7 +59,7 @@ class TestValidPlayer:
     @pytest.mark.parametrize("mode_id", [7, "aaaaa", ""])
     def test_get_invalid_player_stats(self, client, player_id, mode_id):
         response = client.get(
-            f"/players{player_id}/stats",
+            f"/players/{player_id}/stats",
             query_string={
                 "mode": mode_id
             }
@@ -69,12 +69,13 @@ class TestValidPlayer:
 
     def test_bad_methods_stats(self, client, player_id):
         for http_method in (client.post, client.put, client.delete):
-            response = http_method(f"/players{player_id}/stats?mode=0")
+            response = http_method(f"/players/{player_id}/stats?mode=0")
             assert response.status_code == 405
 
 
-@pytest.mark.parametrize("player_id", ["/2", "/aaaaa"])
+# bancho.py does not use player id 2 by default
+@pytest.mark.parametrize("player_id", ["2", "aaaaa"])
 def test_get_invalid_player(client, player_id):
-    response = client.get(f"/players{player_id}")
+    response = client.get(f"/players/{player_id}")
 
     assert response.status_code == 404

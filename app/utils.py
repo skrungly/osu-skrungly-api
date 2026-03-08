@@ -7,6 +7,8 @@ from io import BytesIO
 
 import requests
 
+DOMAIN = os.environ.get("DOMAIN")
+
 DEFAULT_SKIN_URL = os.environ.get("DEFAULT_SKIN_URL")
 DEFAULT_SKIN_ID = "default"
 MAX_SKIN_SIZE = int(os.environ.get("SKIN_MAX_SIZE") or 256 * 1024 * 1024)
@@ -18,6 +20,23 @@ MAX_OSZ_SIZE = int(os.environ.get("OSZ_MAX_SIZE") or 64 * 1024 * 1024)
 FONT_URL = os.environ.get("FONT_URL")
 
 USERNAME_REGEX = re.compile(r"^[\w \[\]-]+$")
+
+
+def fetch_online_player_ids():
+    # we want to parse player ids from this response format:
+    #
+    # users:
+    # (3): kingsley
+    # bots:
+    # (1): chatot
+    player_id_regex = re.compile(r"\((\d+)\): .+")
+
+    response = requests.get(f"https://c.{DOMAIN}/online")
+    if response.status_code != 200:
+        return []  # assume server is offline
+
+    content = response.content.decode()
+    return [int(p_id) for p_id in player_id_regex.findall(content)]
 
 
 def fetch_beatmap_osz(set_id):

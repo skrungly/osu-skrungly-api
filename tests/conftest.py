@@ -4,11 +4,17 @@ from pathlib import Path
 
 import pytest
 
+import app.api as api_module
 from app import app
 
 
 @pytest.fixture()
-def flask_app(tmp_path):
+def flask_app(tmp_path, monkeypatch):
+    # endpoints that return player data have to query bancho.py for
+    # their online status. let's just pretend that id 3 is online:
+    for module in (api_module.players, api_module.scores):
+        monkeypatch.setattr(module, "fetch_online_player_ids", lambda: [3])
+
     app._data_dir = tmp_path
     yield app
 

@@ -10,6 +10,7 @@ from PIL import Image, ImageOps
 
 from app import app, db, models, skins
 from app.api import api
+from app.utils import fetch_online_player_ids
 
 namespace = api.namespace(
     name="players",
@@ -95,6 +96,8 @@ class PlayerAPI(Resource):
             stats_data = cursor.fetchall()
 
         player_data["stats"] = stats_data
+        player_data["online"] = player_data["id"] in fetch_online_player_ids()
+
         return player_schema.dump(player_data)
 
     @jwt_required()

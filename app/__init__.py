@@ -100,4 +100,6 @@ celery = Celery(
 )
 
 from app import logging, replay, skins, utils  # noqa: F401 E402
-from app.api import api  # noqa: F401 E402
+
+# i don't know why but anything else breaks tests /shrug
+from app.api import api as api_  # noqa: F401 E402

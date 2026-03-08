@@ -6,6 +6,7 @@ from flask_restx import Resource
 
 from app import db, models, replay, skins
 from app.api import api
+from app.utils import fetch_online_player_ids
 
 namespace = api.namespace(
     name="scores",
@@ -48,8 +49,12 @@ def resolve_score_data(api_method):
 class ScoresAPI(Resource):
     @resolve_score_data
     def get(self, score_data, map_data, player_data):
+        online_ids = fetch_online_player_ids()
+
         score_data["beatmap"] = map_data
         score_data["player"] = player_data
+        score_data["player"]["online"] = player_data["id"] in online_ids
+
         return score_schema.dump(score_data)
 
 
@@ -162,6 +167,7 @@ class ScoresQueryAPI(Resource):
 
     def get(self):
         args = score_options_schema.load(request.args)
+        online_ids = fetch_online_player_ids()
 
         # we have to handle `sort=frontpage` separately because it is
         # a special case that doesn't work with the other options
@@ -202,6 +208,7 @@ class ScoresQueryAPI(Resource):
 
             score["beatmap"] = beatmap
             score["player"] = player
+            score["player"]["online"] = player["id"] in online_ids
             scores.append(score)
 
         return models.ScoreSchema().dump(scores, many=True)
